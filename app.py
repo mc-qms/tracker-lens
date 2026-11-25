@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from lens import ask, core, digest, extract, loaders
+from lens import ask, core, digest, extract, loaders, writeback
 
 DATA_DIR = Path(__file__).parent / "data"
 INBOX = DATA_DIR / "coa_inbox"
@@ -79,7 +79,8 @@ with st.sidebar:
     st.caption(
         f"Demo date: {state['today']:%B %d, %Y}. The fictional trackers are "
         "date-shifted at load so they are always current. Source files are "
-        "opened read-only — this demo never writes to them."
+        "opened read-only — with one designated exception: a Status "
+        "edit on the Testing tracker tab writes through to the tracker."
     )
 
 tab_today, tab_tests, tab_coa, tab_arr, tab_em, tab_how = st.tabs(
@@ -126,7 +127,7 @@ with tab_today:
         st.markdown(
             "Each CoA that lands is recorded in an arrivals register "
             "(see “How this works”). These have arrived and are not yet "
-            "reviewed. This page only reports — the demo never writes. "
+            "reviewed. This page only reports. "
             "In a real shop the queue empties when a person marks the "
             "register Reviewed, by typing it or by running the keyed "
             "flow described in “How this works.”"
@@ -144,7 +145,26 @@ with tab_today:
 
 # ------------------------------------------------------------------ Testing
 with tab_tests:
-    st.subheader("Every outsourced test, from every tracker, in one view")
+    st.subheader("The collected sheet — every outsourced test, in one view")
+    st.markdown(
+        "This is the lens sheet: the trackers, collected. One column "
+        "is designated for write-back — **Status**, the status as "
+        "recorded in the tracker. Edit it here and the change is "
+        "written through to the source workbook, on the row keyed by "
+        "Sample # and Test. In Excel this same move is the Power "
+        "Automate flow described in “How this works”: the query view "
+        "can't take the edit, so the flow routes it home. Every other "
+        "column is computed by the lens, and a derivation can't be "
+        "edited."
+    )
+    if "tracker_writes" in st.session_state:
+        for w in st.session_state.pop("tracker_writes"):
+            old = w["old"] if w["old"] not in (None, "") else "blank"
+            st.success(
+                f"You updated {w['file']} (sheet “{w['sheet']}”): the row "
+                f"where Sample # = {w['sample_id']} and Test = {w['test']} — "
+                f"{w['column']} changed from “{old}” to “{w['new']}”."
+            )
     attention_only = st.checkbox("Only show items needing attention", value=True)
 
     def coa_note(t):
@@ -176,18 +196,49 @@ with tab_tests:
             "Lab": t["lab"],
             "Sent": t["sent"].isoformat() if t["sent"] else "",
             "Due": t["due"].isoformat() if t["due"] else "",
-            "Status": STATE_LABELS[t["state"]],
+            "Status": t["status_raw"],
+            "Lens state": STATE_LABELS[t["state"]],
             "CoA": coa_note(t),
             "When": when,
             "Result": t["result"] or "",
         })
     if rows:
-        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+        status_options = sorted({t["status_raw"] for t in enriched}
+                                | {"Sent", "RECEIVED", "Complete"})
+        editor_key = "tracker_editor_" + str(
+            hash(tuple((r["Sample"], r["Test"], r["Status"]) for r in rows)))
+        edited = st.data_editor(
+            pd.DataFrame(rows),
+            width="stretch",
+            hide_index=True,
+            key=editor_key,
+            disabled=["Sample", "Material", "Test", "Lab", "Sent", "Due",
+                      "Lens state", "CoA", "When", "Result"],
+            column_config={
+                "Status": st.column_config.SelectboxColumn(
+                    "Status (recorded — editable)",
+                    options=status_options,
+                    required=True,
+                ),
+            },
+        )
+        writes = []
+        for i, r in enumerate(rows):
+            new_status = str(edited.iloc[i]["Status"])
+            if new_status != r["Status"]:
+                writes.append(writeback.set_status(
+                    str(DATA_DIR), r["Sample"], r["Test"], new_status))
+        if writes:
+            st.session_state["tracker_writes"] = writes
+            st.cache_data.clear()
+            st.rerun()
     else:
         st.info("Nothing needs attention right now.")
     st.caption(
         "Due dates and day counts are computed by the app from the trackers' "
-        "own sent dates and promised turnaround times — never estimated."
+        "own sent dates and promised turnaround times — never estimated. "
+        "Status is the one column that is the tracker's own words, which is "
+        "why it is the one column you can change."
     )
 
 # ---------------------------------------------------------------------- CoA
@@ -253,8 +304,9 @@ with tab_coa:
             "move when people sort. The app never writes the spreadsheet on "
             "its own: in a quality environment the person entering a record "
             "is accountable for it, so the agent prepares the entry and shows "
-            "its evidence; the human enters it. This demo performs no "
-            "writes at all."
+            "its evidence; the human enters it. (The demo's one write is "
+            "the same shape: a Status edit in the collected sheet, written "
+            "through to the tracker.)"
         )
 
 # ----------------------------------------------------------------- Arrivals
@@ -321,10 +373,12 @@ with it as it is.
 **The rules the whole pattern runs on** — what the lens may read,
 what Python computes, what the model may do, and who may write:
 
-- **Sources are opened read-only, and the lens never writes.** The
-  trackers stay exactly as their owners left them. Write-back in the
-  real pattern is a person typing, or a keyed flow a person runs —
-  described below, never performed by the lens itself.
+- **Sources are opened read-only, and the lens never writes on its
+  own.** The one write in this pattern is the user's: an edit in the
+  designated Status column of the collected sheet, written through
+  to the source tracker, keyed by sample ID and test. In the real
+  pattern that write is a person typing, or a keyed flow a person
+  runs — described below.
 - **Every date, limit, and count is computed in Python.** Due dates come
   from sent dates plus promised turnaround times; specification checks
   compare numbers against registered limits. Nothing that matters is
@@ -345,17 +399,20 @@ what Python computes, what the model may do, and who may write:
 
 **Writing back**
 
-This demo never writes — deliberately. In the connected pattern the
-agent knows things the trackers don't: it watches the inbox, so it
-knows a CoA arrived the moment it lands. Closing that gap is still
-a human act with a human author. Either the person types the status
-in the sheet, or they run the keyed flow described above: the row
-where Sample # = FL-106 and Test = Endotoxin, the Status column,
-because rows move when people sort and keys don't. The flow's write
-logic is in this repo as tested Python (`lens/writeback.py`) — one
-cell, keyed, verified — even though the demo app never calls it.
-Seeing a button wouldn't tell you any of that, which is why it's
-written here instead.
+The collected sheet — the Testing tracker tab — has one designated
+column: Status, the status as recorded in the tracker. Edit it
+there and the change is written through to the source workbook: the
+row where Sample # = FL-106 and Test = Endotoxin, the Status
+column, nothing else — because rows move when people sort and keys
+don't. No other column can be edited; the rest of the sheet is
+computed, and a derivation can't be edited. Nothing writes on its
+own: the edit is the user's, made in the sheet they're looking at.
+
+This demo can do that because it isn't Excel. In the connected
+pattern the same write is a person typing in the source sheet, or
+the keyed Power Automate flow described above. The write logic is
+the same object in both worlds, and it's in this repo as tested
+Python (`lens/writeback.py`): one cell, keyed, verified.
 
 A spreadsheet-only shop can get the same behavior with a formula.
 Keep arrivals on an Updates sheet (Sample # in column A, the new

@@ -130,6 +130,29 @@ def test_mark_received_writes_by_key(tmp_path):
     assert fl106["state"] == "RETURNED"
 
 
+def test_set_status_writes_through_keyed(tmp_path):
+    import openpyxl
+    _copy_data(tmp_path)
+    rec = writeback.set_status(str(tmp_path), "FL-103", "Endotoxin", "RECEIVED")
+    assert rec["column"] == "Status" and rec["new"] == "RECEIVED"
+    assert rec["old"] == "waiting"  # the sheet's own free-text word for still-out
+    wb = openpyxl.load_workbook(tmp_path / "testing_tracker.xlsx")
+    ws = wb["CTL Tracker 2026"]
+    cells = {(r[0].value, r[1].value): r[5].value for r in ws.iter_rows(min_row=2)}
+    assert cells[("FL-103", "Endotoxin")] == "RECEIVED"
+    assert cells[("FL-104", "Sterility")] == "waiting"  # other rows untouched
+    assert cells[("FL-101", "Endotoxin")] == "Sent"
+    state = loaders.load_all(str(tmp_path), today=TODAY)
+    row = [t for t in state["tests"]
+           if t["sample_id"] == "FL-103" and t["test"] == "Endotoxin"][0]
+    assert row["status"] == "RECEIVED" and row["status_raw"] == "RECEIVED"
+    try:
+        writeback.set_status(str(tmp_path), "FL-999", "Endotoxin", "RECEIVED")
+        raise AssertionError("unknown key should have raised")
+    except ValueError:
+        pass
+
+
 def test_mark_reviewed_clears_the_queue(tmp_path):
     import openpyxl
     _copy_data(tmp_path)

@@ -22,7 +22,9 @@ do, and who may write:
   arrived but the tracker still shows the test as out, the write-back
   is the user's: typing the status in the sheet, or running a keyed
   Power Automate flow that writes the Status cell, keyed by sample
-  ID and test.
+  ID and test. In this demo, an edit in the collected sheet's one
+  designated column — the recorded Status — writes through to the
+  source tracker the same way.
 - **Every date, limit, and count is computed in Python.** Due dates
   come from sent dates plus promised turnaround times; specification
   checks compare numbers against registered limits.
@@ -93,11 +95,12 @@ limits in `lens/core.py` are demo values.
   LLM route)
 - `lens/digest.py` — the morning update: deterministic facts,
   plain-language wording, source provenance
-- `lens/writeback.py` — the write-back flow's logic as tested
-  Python: mark a tracker row received, file an arrival as reviewed,
-  each keyed by sample ID and test. The demo app never calls it —
-  the demo performs no writes; in a real shop this is the keyed
-  Power Automate flow a person runs
+- `lens/writeback.py` — the write-back logic as tested Python:
+  set a tracker row's Status, mark it received, file an arrival as
+  reviewed, each keyed by sample ID and test. The app calls it for
+  exactly one thing — a Status edit in the collected sheet's
+  designated column, written through to the source tracker; in a
+  real shop this is the keyed Power Automate flow a person runs
 - `lens/ask.py` — questions about the trackers, answered from the
   computed snapshot with sources named; if the snapshot doesn't
   contain the answer, it says so

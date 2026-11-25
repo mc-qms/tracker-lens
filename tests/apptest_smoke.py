@@ -26,7 +26,9 @@ print("ask flow OK")
 btn_labels = [b.label for b in at.button]
 assert "Mark as received in the tracker" not in btn_labels, btn_labels
 assert "Acknowledge only" not in btn_labels, btn_labels
-print("no write buttons anywhere (demo is read-only) OK")
+print("no floating write buttons anywhere OK")
+assert len(at.data_editor) >= 1, "collected-sheet editor missing"
+print("collected sheet editor OK")
 inbox = [s for s in at.selectbox if s.label == "Inbox"]
 assert inbox, "inbox selectbox not found"
 inbox[0].set_value("coa_fl107_endotoxin.txt").run()

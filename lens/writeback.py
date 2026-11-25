@@ -1,14 +1,16 @@
-"""The writes in the demo — made by the user, never by the lens.
+"""The write-back — performed for the user, never by the lens itself.
 
-When the lens knows something the trackers do not (a CoA has arrived;
-the tracker row still shows the test as out), the Today tab offers the
-user buttons. Clicking one is the user writing: this module performs
-exactly those writes and nothing else.
+The collected sheet has one designated column: the tracker's
+recorded Status. When the user edits that column, this module writes
+the change through to the source workbook — exactly one cell, in the
+row keyed by Sample # and Test. Nothing else in the demo writes, and
+nothing writes on its own.
 
-Every write is keyed, never positional: the row is found by Sample #
-and Test, and the value lands in a named column. Rows move when
-people sort; keys do not. The match must be unambiguous — if the key
-matches zero rows or more than one, nothing is written.
+In a real Excel shop this module is the Power Automate flow: the
+query view cannot take the edit, so a flow routes it to the source
+workbook's "Update a row" action — keyed, like this, because rows
+move when people sort and keys do not. The match must be
+unambiguous: zero or multiple matches and nothing is written.
 """
 from __future__ import annotations
 
@@ -57,6 +59,14 @@ def _set_cell(data_dir, filename, sheet, sample_id, test_name, column, value):
         "old": old,
         "new": value,
     }
+
+
+def set_status(data_dir, sample_id, test_name, new_status):
+    """The designated-column write: the user edited the recorded
+    Status of one row of the collected sheet, and the edit is written
+    through to the testing tracker, keyed by Sample # and Test."""
+    return _set_cell(data_dir, TRACKER_FILE, TRACKER_SHEET,
+                     sample_id, test_name, "Status", new_status)
 
 
 def mark_received(data_dir, sample_id, test_name):

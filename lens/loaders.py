@@ -137,6 +137,7 @@ def load_testing_tracker(path):
             "sent": parse_date(row[cols["sent"]]),
             "tat_days": tat,
             "status": normalize_status(row[cols["status"]]),
+            "status_raw": str(row[cols["status"]]).strip(),
             "result": result,
         })
     return records, FileReport(name, "ok", len(records), "loaded")
