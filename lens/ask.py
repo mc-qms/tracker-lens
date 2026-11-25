@@ -42,7 +42,7 @@ def _when(t):
     if t["state"] == "RETURNED":
         return "the CoA is back"
     if t["state"] == "COMPLETE":
-        return f"complete{f' — result {t['result']}' if t['result'] else ''}"
+        return "complete"
     return "in progress"
 
 

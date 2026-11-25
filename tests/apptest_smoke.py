@@ -39,5 +39,6 @@ btns[0].click().run()
 assert not at.exception, at.exception
 codes = [c.value for c in at.code]
 assert any("FL-107" in c for c in codes), f"proposed update missing: {codes}"
+assert all("Set Result" not in c for c in codes), "tracker update must not transcribe the result"
 print("CoA flow OK:", [c for c in codes if "FL-107" in c][0].replace("\n", " | "))
 print("SMOKE TEST PASSED")

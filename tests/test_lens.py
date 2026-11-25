@@ -78,8 +78,9 @@ def test_clean_coa_passes():
     assert review["verdict"] == "PASS", review["checks"]
     update = core.proposed_update(parsed, review)
     assert update["key_value"] == "FL-107"
-    assert ("Result", "0.08 EU/mg") in update["sets"]
     assert ("Status", "done") in update["sets"]
+    # The result is never transcribed into the tracker — it stays on the CoA.
+    assert all(col != "Result" for col, _ in update["sets"])
 
 
 def test_oos_coa_flags():

@@ -189,21 +189,23 @@ def find_arrivals(tests, register):
 def proposed_update(extracted, review):
     """The exact tracker edit for a human to type in — addressed by
     sample ID and column name, never by row number (rows move when
-    people sort). The lens proposes; the human writes."""
+    people sort). The lens proposes; the human writes.
+
+    The update carries the Status and nothing else. The result value
+    is never transcribed into the tracker: it lives on the CoA, and a
+    hand-copied value in a logistics sheet is a second, weaker record
+    that can disagree with the first. The tracker learns that the
+    test is done — never what it measured."""
     sid = extracted.get("sample_id")
-    value, unit = extracted.get("value"), extracted.get("unit") or ""
     oos = any(c["label"] == "Result within specification" and c["status"] == "FLAG"
               for c in review["checks"])
-    result_text = f"{value:g} {unit}".strip() if value is not None else "(see CoA)"
     if oos:
         sets = [
             ("Status", "RECEIVED — result exceeds specification; escalate, do not close"),
-            ("Result", f"{result_text} — exceeds {review['spec']['label']}" if review["spec"] else result_text),
         ]
     else:
         sets = [
             ("Status", "done"),
-            ("Result", result_text),
         ]
     evidence = [c["evidence"] for c in review["checks"] if c["evidence"]]
     return {

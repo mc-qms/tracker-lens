@@ -44,21 +44,23 @@ wb.save(os.path.join(BASE, "sample_log.xlsx"))
 wb = Workbook()
 ws = wb.active
 ws.title = "CTL Tracker 2026"
-ws.append(["Sample #", "Test", "Lab", "Date Sent", "Promised (days)", "Status", "Result"])
+ws.append(["Sample #", "Test", "Lab", "Date Sent", "Promised (days)", "Status"])
 # Date Sent deliberately mixed: real dates, US strings, "Nov 3, 2026" strings.
+# No Result column, deliberately: a result value lives on its CoA.
+# The tracker learns statuses, never measurements.
 tests = [
-    ("FL-101", "Endotoxin", "Pacific BioTest", d(-1), 5, "Sent", None),
-    ("FL-101", "TOC", "Meridian Analytical", "Jan 11, 2026", 3, "Sent", None),
-    ("FL-102", "Bioburden", "Pacific BioTest", d(-6), 7, "Sent", None),
-    ("FL-102", "Endotoxin", "Pacific BioTest", "01/06/2026", 7, "Sent", None),
-    ("FL-103", "Endotoxin", "Meridian Analytical", d(-12), 7, "waiting", None),
-    ("FL-104", "Sterility", "ClearLine Labs", d(-16), 14, "waiting", None),
-    ("FL-106", "Endotoxin", "Pacific BioTest", d(-3), 5, "Sent", None),
-    ("FL-107", "Endotoxin", "Pacific BioTest", d(-9), 7, "RECEIVED", None),
-    ("FL-108", "Bioburden", "Meridian Analytical", d(-8), 10, "Sent", None),
-    ("FL-109", "Bioburden", "Pacific BioTest", d(-11), 10, "RECEIVED", None),
-    ("FL-110", "Sterility", "ClearLine Labs", "Jan 8, 2026", 14, "Sent", None),
-    ("FL-111", "TOC", "Meridian Analytical", d(-15), 5, "done", "212 ppb"),
+    ("FL-101", "Endotoxin", "Pacific BioTest", d(-1), 5, "Sent"),
+    ("FL-101", "TOC", "Meridian Analytical", "Jan 11, 2026", 3, "Sent"),
+    ("FL-102", "Bioburden", "Pacific BioTest", d(-6), 7, "Sent"),
+    ("FL-102", "Endotoxin", "Pacific BioTest", "01/06/2026", 7, "Sent"),
+    ("FL-103", "Endotoxin", "Meridian Analytical", d(-12), 7, "waiting"),
+    ("FL-104", "Sterility", "ClearLine Labs", d(-16), 14, "waiting"),
+    ("FL-106", "Endotoxin", "Pacific BioTest", d(-3), 5, "Sent"),
+    ("FL-107", "Endotoxin", "Pacific BioTest", d(-9), 7, "RECEIVED"),
+    ("FL-108", "Bioburden", "Meridian Analytical", d(-8), 10, "Sent"),
+    ("FL-109", "Bioburden", "Pacific BioTest", d(-11), 10, "RECEIVED"),
+    ("FL-110", "Sterility", "ClearLine Labs", "Jan 8, 2026", 14, "Sent"),
+    ("FL-111", "TOC", "Meridian Analytical", d(-15), 5, "done"),
 ]
 for row in tests:
     ws.append(list(row))

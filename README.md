@@ -28,6 +28,9 @@ do, and who may write:
 - **Every date, limit, and count is computed in Python.** Due dates
   come from sent dates plus promised turnaround times; specification
   checks compare numbers against registered limits.
+- **The tracker carries no result values.** A result lives on its
+  CoA; the tracker learns statuses only. A transcribed value is a
+  second, weaker record that can disagree with the first.
 - **The language model has one narrow job:** reading an incoming CoA
   into structured fields (used for pasted CoAs when an API key is
   configured in Streamlit Secrets; the bundled inbox is read by a

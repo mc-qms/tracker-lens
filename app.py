@@ -203,7 +203,6 @@ with tab_tests:
             "Lens state": STATE_LABELS[t["state"]],
             "CoA": coa_note(t),
             "When": when,
-            "Result": t["result"] or "",
         })
     if rows:
         status_options = sorted({t["status_raw"] for t in enriched}
@@ -216,7 +215,7 @@ with tab_tests:
             hide_index=True,
             key=editor_key,
             disabled=["Sample", "Material", "Test", "Lab", "Sent", "Due",
-                      "Lens state", "CoA", "When", "Result"],
+                      "Lens state", "CoA", "When"],
             column_config={
                 "Status": st.column_config.SelectboxColumn(
                     "Status (recorded — editable)",
@@ -307,7 +306,11 @@ with tab_coa:
             "move when people sort. The app never writes the spreadsheet on "
             "its own: in a quality environment the person entering a record "
             "is accountable for it, so the agent prepares the entry and shows "
-            "its evidence; the human enters it. (The demo's one write is "
+            "its evidence; the human enters it. Note what the update does "
+            "not contain: the result. The value stays on the CoA — the "
+            "tracker learns that the test is done, never what it "
+            "measured. (The demo's one write is "
+            "the same shape: a Status edit in the collected sheet, written "
             "the same shape: a Status edit in the collected sheet, written "
             "through to the tracker.)"
         )
@@ -454,6 +457,17 @@ record of the arrival stays, filed under Reviewed, and the queue
 is empty exactly when everything that arrived has been seen by a
 person.
 
+**What the tracker never carries**
+
+There is no Result column in the testing tracker, on purpose. A
+result value lives on its CoA; the moment someone transcribes it
+into a logistics sheet, there are two records of the measurement —
+and the weaker one, the hand-typed cell, is the one people end up
+quoting. The tracker learns statuses: sent, back, done. The review
+reads values, against the specification, from the CoA itself. (The
+EM sheet is a different case: there the sheet *is* the record being
+trended, so its values belong in it.)
+
 **Asking questions**
 
 The digest and the answers are one voice. Python computes a single
@@ -481,7 +495,7 @@ copy-pasted consolidation does; it's the loaders in this demo,
 wearing Excel's clothes. The agent reads that collected view and
 speaks from it.
 
-And there are no buttons in Excel. The writes in this demo stand in
+The writes in this demo stand in
 for what a person actually does there: open the tracker and type
 the status, the way they already do. The input surfaces are named
 and few — the tracker's Status column, the register's Reviewed
