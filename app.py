@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from lens import ask, core, digest, extract, loaders, writeback
+from lens import ask, core, digest, extract, loaders
 
 DATA_DIR = Path(__file__).parent / "data"
 INBOX = DATA_DIR / "coa_inbox"
@@ -79,8 +79,7 @@ with st.sidebar:
     st.caption(
         f"Demo date: {state['today']:%B %d, %Y}. The fictional trackers are "
         "date-shifted at load so they are always current. Source files are "
-        "opened read-only — the app writes only when you tell it to, "
-        "from the Arrivals tab."
+opened read-only — this demo never writes to them.
     )
 
 tab_today, tab_tests, tab_coa, tab_arr, tab_em, tab_how = st.tabs(
@@ -122,22 +121,15 @@ with tab_today:
         "named. If the trackers don't contain the answer, it says so."
     )
 
-    if "last_writes" in st.session_state:
-        for w in st.session_state.pop("last_writes"):
-            old = w["old"] if w["old"] not in (None, "") else "blank"
-            st.success(
-                f"You updated {w['file']} (sheet “{w['sheet']}”): the row "
-                f"where Sample # = {w['sample_id']} and Test = {w['test']} — "
-                f"{w['column']} changed from “{old}” to “{w['new']}”."
-            )
     if arrivals:
         st.subheader("New arrivals")
         st.markdown(
             "Each CoA that lands is recorded in an arrivals register "
             "(see “How this works”). These have arrived and are not yet "
-            "reviewed. Handling one happens on the **Arrivals tab**, "
-            "where the register row is in front of you — this page "
-            "reports; the sheets are where you act."
+            "reviewed. This page only reports — the demo never writes. "
+            "In a real shop the queue empties when a person marks the "
+            "register Reviewed, by typing it or by running the keyed "
+            "flow described in “How this works.”"
         )
         for a in arrivals:
             when = f" — arrived {a['date']:%b %d}" if a["date"] else ""
@@ -261,9 +253,8 @@ with tab_coa:
             "move when people sort. The app never writes the spreadsheet on "
             "its own: in a quality environment the person entering a record "
             "is accountable for it, so the agent prepares the entry and shows "
-            "its evidence; the human enters it. (The one write this demo "
-            "does make is also the human's — the mark-as-received button on "
-            "the Arrivals tab.)"
+            "its evidence; the human enters it. This demo performs no "
+            "writes at all."
         )
 
 # ----------------------------------------------------------------- Arrivals
@@ -290,59 +281,6 @@ with tab_arr:
         "Power Automate flow writes when a lab's CoA email lands; "
         "here it is arrivals.xlsx, kept with the other demo sources."
     )
-
-    if arrivals:
-        st.subheader("Handle unreviewed arrivals")
-        st.markdown(
-            "The lens never writes on its own. These buttons are you "
-            "writing — the app just knows which file, which row, and "
-            "which column. Every write is keyed by sample ID and test, "
-            "never by row number. (In Excel there is no button: you "
-            "open the sheet and type the status. The button stands in "
-            "for that typing so you can watch where the write lands.)"
-        )
-        for a in arrivals:
-            when = f" — arrived {a['date']:%b %d}" if a["date"] else ""
-            if a["tracker_status"] == "SENT":
-                st.markdown(
-                    f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
-                    "CoA received; the tracker still shows it as sent."
-                )
-                c1, c2 = st.columns(2)
-                if c1.button(
-                    "Mark as received in the tracker",
-                    key=f"recv_{a['sample_id']}_{a['test']}",
-                ):
-                    st.session_state["last_writes"] = [
-                        writeback.mark_received(str(DATA_DIR), a["sample_id"], a["test"]),
-                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
-                    ]
-                    st.cache_data.clear()
-                    st.rerun()
-                if c2.button(
-                    "Acknowledge only",
-                    key=f"ack_{a['sample_id']}_{a['test']}",
-                ):
-                    st.session_state["last_writes"] = [
-                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
-                    ]
-                    st.cache_data.clear()
-                    st.rerun()
-            else:
-                st.markdown(
-                    f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
-                    "CoA received; the tracker has already caught up."
-                )
-                if st.button(
-                    "Acknowledge",
-                    key=f"ack_{a['sample_id']}_{a['test']}",
-                ):
-                    st.session_state["last_writes"] = [
-                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
-                    ]
-                    st.cache_data.clear()
-                    st.rerun()
-
 
 # ----------------------------------------------------------------------- EM
 with tab_em:
@@ -384,8 +322,9 @@ with it as it is.
 what Python computes, what the model may do, and who may write:
 
 - **Sources are opened read-only, and the lens never writes.** The
-  trackers stay exactly as their owners left them — with one
-  exception, and it is yours: the mark-as-received write below.
+  trackers stay exactly as their owners left them. Write-back in the
+  real pattern is a person typing, or a keyed flow a person runs —
+  described below, never performed by the lens itself.
 - **Every date, limit, and count is computed in Python.** Due dates come
   from sent dates plus promised turnaround times; specification checks
   compare numbers against registered limits. Nothing that matters is
@@ -404,16 +343,19 @@ what Python computes, what the model may do, and who may write:
   trackers has a renamed column and cannot be read; the morning update
   says so, and says what is therefore missing from the picture.
 
-**When you write from the lens**
+**Writing back**
 
-In the connected pattern, the agent knows things the trackers don't —
-it watches the inbox, so it knows a CoA arrived the moment it lands.
-The Arrivals tab shows that gap — the register row in front of you —
-and closing it is still a human act:
-you click "Mark as received," and only then does anything write. The
-write is keyed, never positional — the row where Sample # = FL-106
-and Test = Endotoxin, the Status column — because rows move when
-people sort, and keys don't.
+This demo never writes — deliberately. In the connected pattern the
+agent knows things the trackers don't: it watches the inbox, so it
+knows a CoA arrived the moment it lands. Closing that gap is still
+a human act with a human author. Either the person types the status
+in the sheet, or they run the keyed flow described above: the row
+where Sample # = FL-106 and Test = Endotoxin, the Status column,
+because rows move when people sort and keys don't. The flow's write
+logic is in this repo as tested Python (`lens/writeback.py`) — one
+cell, keyed, verified — even though the demo app never calls it.
+Seeing a button wouldn't tell you any of that, which is why it's
+written here instead.
 
 A spreadsheet-only shop can get the same behavior with a formula.
 Keep arrivals on an Updates sheet (Sample # in column A, the new
@@ -496,7 +438,8 @@ sheet) alongside its keys, and the flow routes on those: the Excel
 connector's "Update a row" finds the row in the source workbook by
 key column — Sample # and Test — and sets the cell. Keyed, never
 positional, because rows move when people sort. That flow is this
-demo's button, in platform clothing.
+pattern's write-back, in platform clothing — and it is a person
+who runs it.
 
 **In a real company**, the same pattern runs on the company's own
 harness — Copilot Studio with Power Automate and the Graph API, Lists

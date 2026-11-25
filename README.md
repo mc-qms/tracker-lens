@@ -18,11 +18,11 @@ What the lens may read, what Python computes, what the model may
 do, and who may write:
 
 - **Sources are opened read-only, and the lens never writes.** The
-  trackers stay exactly as their owners left them — with one
-  exception, and it is the user's: when a CoA has arrived but the
-  tracker still shows the test as out, the Arrivals tab offers a
-  mark-as-received button, and the user's click writes the Status
-  cell, keyed by sample ID and test.
+  trackers stay exactly as their owners left them. When a CoA has
+  arrived but the tracker still shows the test as out, the write-back
+  is the user's: typing the status in the sheet, or running a keyed
+  Power Automate flow that writes the Status cell, keyed by sample
+  ID and test.
 - **Every date, limit, and count is computed in Python.** Due dates
   come from sent dates plus promised turnaround times; specification
   checks compare numbers against registered limits.
@@ -93,9 +93,11 @@ limits in `lens/core.py` are demo values.
   LLM route)
 - `lens/digest.py` — the morning update: deterministic facts,
   plain-language wording, source provenance
-- `lens/writeback.py` — the writes, all of them the user's: mark a
-  tracker row received, file an arrival as reviewed, each keyed by
-  sample ID and test
+- `lens/writeback.py` — the write-back flow's logic as tested
+  Python: mark a tracker row received, file an arrival as reviewed,
+  each keyed by sample ID and test. The demo app never calls it —
+  the demo performs no writes; in a real shop this is the keyed
+  Power Automate flow a person runs
 - `lens/ask.py` — questions about the trackers, answered from the
   computed snapshot with sources named; if the snapshot doesn't
   contain the answer, it says so
