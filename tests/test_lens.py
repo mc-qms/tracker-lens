@@ -5,7 +5,7 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lens import core, digest, extract, loaders, writeback
+from lens import ask, core, digest, extract, loaders, writeback
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 TODAY = date(2026, 11, 24)
@@ -144,6 +144,41 @@ def test_mark_reviewed_clears_the_queue(tmp_path):
     assert core.find_arrivals(state["tests"], state["arrivals"]) == []
     # The record stays: all three arrivals are still in the register.
     assert len(state["arrivals"]) == 3
+
+
+def _ask(q):
+    state = loaded()
+    enriched = core.enrich_tests(state["tests"], TODAY)
+    return ask.answer(q, enriched, core.em_excursions(state["em"]))
+
+
+def test_ask_overdue():
+    out = _ask("What's overdue?")
+    assert "FL-103" in out and "5 days past" in out
+    assert "FL-104" in out and "2 days past" in out
+    assert "testing_tracker.xlsx" in out
+
+
+def test_ask_sample_and_unknown_sample():
+    out = _ask("Status of FL-106?")
+    assert "Endotoxin" in out and "Pacific BioTest" in out and "due in 2 days" in out
+    out = _ask("Status of FL-999?")
+    assert "No sample FL-999" in out
+
+
+def test_ask_lab_awaiting_and_em():
+    assert "FL-103" in _ask("What do we have at Meridian?")
+    out = _ask("What's back awaiting review?")
+    assert "FL-107" in out and "FL-109" in out
+    out = _ask("Any EM excursions?")
+    assert "Grade B" in out and "12" in out
+
+
+def test_ask_why_and_unanswerable():
+    out = _ask("Why is FL-103 late?")
+    assert "don't say why" in out and "FL-103" in out
+    out = _ask("What's the weather like?")
+    assert "don't answer that" in out
 
 
 def test_digest_facts_and_provenance():

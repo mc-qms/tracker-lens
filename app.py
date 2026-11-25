@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from lens import core, digest, extract, loaders, writeback
+from lens import ask, core, digest, extract, loaders, writeback
 
 DATA_DIR = Path(__file__).parent / "data"
 INBOX = DATA_DIR / "coa_inbox"
@@ -98,6 +98,21 @@ with tab_today:
     st.subheader("The morning update")
     for line in digest.render_digest(facts):
         st.markdown(line)
+
+    st.subheader("Ask the lens")
+    question = st.text_input(
+        "Ask about the trackers",
+        placeholder="What's overdue? · Status of FL-106? · What's back awaiting review?",
+    )
+    if st.button("Ask"):
+        st.session_state["qa"] = ask.answer(question, enriched, excursions)
+    if "qa" in st.session_state:
+        st.markdown(st.session_state["qa"])
+    st.caption(
+        "Answers come from the same computed snapshot as the update "
+        "above — every date and count calculated in Python, the source "
+        "named. If the trackers don't contain the answer, it says so."
+    )
 
     if "last_writes" in st.session_state:
         for w in st.session_state.pop("last_writes"):
@@ -372,6 +387,19 @@ leaves the morning list. It does not leave the register. The
 record of the arrival stays, filed under Reviewed, and the queue
 is empty exactly when everything that arrived has been seen by a
 person.
+
+**Asking questions**
+
+The Today tab takes questions, and the rule is that the chat never
+does its own math. Python computes a snapshot — every test with its
+state, due date, and day count — and answers are phrased from that
+snapshot alone, with the source file named. Ask why something is
+late and the honest answer is that the trackers record dates and
+statuses, not reasons. In the connected version a language model
+can phrase the same snapshot more freely; the facts it may use are
+the computed ones, and a question that asks for a decision ("should
+I accept this result?") gets the facts and the flags, never the
+disposition. That stays with a person.
 
 **In a real company**, the same pattern runs on the company's own
 harness — Copilot Studio with Power Automate and the Graph API, Lists

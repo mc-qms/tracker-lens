@@ -93,6 +93,9 @@ limits in `lens/core.py` are demo values.
 - `lens/writeback.py` — the writes, all of them the user's: mark a
   tracker row received, file an arrival as reviewed, each keyed by
   sample ID and test
+- `lens/ask.py` — questions about the trackers, answered from the
+  computed snapshot with sources named; if the snapshot doesn't
+  contain the answer, it says so
 - `data/` — the sprawl itself, the CoA inbox, and the arrivals
   register (`arrivals.xlsx`: one row per CoA that has landed, with
   a Reviewed disposition column)
