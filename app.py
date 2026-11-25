@@ -36,7 +36,7 @@ STATE_LABELS = {
     "OVERDUE": "Overdue",
     "DUE_SOON": "Due soon",
     "IN_PROGRESS": "In progress",
-    "AWAITING_REVIEW": "CoA back — awaiting review",
+    "RETURNED": "CoA back",
     "COMPLETE": "Complete",
 }
 
@@ -56,10 +56,9 @@ def load(today_str):
 state = load(date.today().isoformat())
 enriched = core.enrich_tests(state["tests"], state["today"])
 excursions = core.em_excursions(state["em"])
-facts = digest.build_facts(enriched, excursions, state["reports"])
-materials = {s["sample_id"]: s["material"] for s in state["samples"]}
-
 arrivals = core.find_arrivals(state["tests"], state["arrivals"])
+facts = digest.build_facts(enriched, excursions, state["reports"], arrivals)
+materials = {s["sample_id"]: s["material"] for s in state["samples"]}
 
 st.title("Tracker Lens")
 st.caption(
@@ -114,7 +113,7 @@ with tab_today:
         placeholder="What's overdue? · Status of FL-106? · What's back awaiting review?",
     )
     if st.button("Ask"):
-        st.session_state["qa"] = ask.answer(question, enriched, excursions)
+        st.session_state["qa"] = ask.answer(question, enriched, excursions, arrivals)
     if "qa" in st.session_state:
         st.markdown(st.session_state["qa"])
     st.caption(
@@ -193,7 +192,7 @@ with tab_tests:
     attention_only = st.checkbox("Only show items needing attention", value=True)
     rows = []
     for t in enriched:
-        if attention_only and t["state"] not in ("OVERDUE", "DUE_SOON", "AWAITING_REVIEW"):
+        if attention_only and t["state"] not in ("OVERDUE", "DUE_SOON", "RETURNED"):
             continue
         if t["days"] is None:
             when = "—"

@@ -19,7 +19,7 @@ LABELS = {
     "OVERDUE": "overdue",
     "DUE_SOON": "due soon",
     "IN_PROGRESS": "in progress",
-    "AWAITING_REVIEW": "back — awaiting review",
+    "RETURNED": "CoA back",
     "COMPLETE": "complete",
 }
 
@@ -39,8 +39,8 @@ def _when(t):
         if t["days"] == 1:
             return "due tomorrow"
         return f"due in {t['days']} days"
-    if t["state"] == "AWAITING_REVIEW":
-        return "the CoA is back, awaiting review"
+    if t["state"] == "RETURNED":
+        return "the CoA is back"
     if t["state"] == "COMPLETE":
         return f"complete{f' — result {t['result']}' if t['result'] else ''}"
     return "in progress"
@@ -57,7 +57,7 @@ def _list(rows, source, empty):
     return "\n".join(f"- {_line(t)}" for t in rows) + f"\n\n*(Source: {source})*"
 
 
-def answer(question, enriched, excursions):
+def answer(question, enriched, excursions, queue=()):
     q = (question or "").strip().lower()
     if not q:
         return "Ask me something about the trackers. " + CAN_ANSWER
@@ -117,9 +117,18 @@ def answer(question, enriched, excursions):
                       key=lambda t: t["days"])
         return _list(rows, "testing_tracker.xlsx", "Nothing is overdue.")
     if "awaiting" in q or "review" in q or "back" in q:
-        rows = [t for t in enriched if t["state"] == "AWAITING_REVIEW"]
-        return _list(rows, "testing_tracker.xlsx",
-                     "Nothing is back awaiting review.")
+        # Awaiting review is read from the arrivals register: arrived
+        # and not yet marked Reviewed. The sheet is the source.
+        if not queue:
+            return "Nothing is back awaiting review. *(Source: arrivals.xlsx)*"
+        lines = []
+        for a in queue:
+            caught = ("the tracker has caught up"
+                      if a["tracker_status"] not in (None, "SENT")
+                      else "the tracker still shows it as sent")
+            lines.append(f"- **{a['sample_id']} {a['test']}** ({a['lab']}) — "
+                         f"arrived, not yet reviewed; {caught}.")
+        return "\n".join(lines) + "\n\n*(Source: arrivals.xlsx)*"
     if "due" in q:
         rows = sorted([t for t in enriched if t["state"] == "DUE_SOON"],
                       key=lambda t: t["days"])
@@ -132,10 +141,9 @@ def answer(question, enriched, excursions):
     if any(w in q for w in ("status", "open", "how many", "summary", "update")):
         open_rows = [t for t in enriched if t["state"] != "COMPLETE"]
         over = [t for t in enriched if t["state"] == "OVERDUE"]
-        awaiting = [t for t in enriched if t["state"] == "AWAITING_REVIEW"]
         return (
             f"{len(open_rows)} outsourced tests are still open. "
-            f"{len(over)} overdue, {len(awaiting)} back awaiting review. "
+            f"{len(over)} overdue, {len(queue)} back awaiting review. "
             "Ask me about any sample, lab, or test for the detail.\n\n"
             "*(Source: testing_tracker.xlsx)*"
         )

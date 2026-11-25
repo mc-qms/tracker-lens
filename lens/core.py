@@ -37,7 +37,7 @@ def enrich_tests(tests, today):
             row["state"] = "COMPLETE"
             row["days"] = None
         elif t["status"] == "RECEIVED":
-            row["state"] = "AWAITING_REVIEW"
+            row["state"] = "RETURNED"
             row["days"] = None
         elif row["due"] is None:
             row["state"] = "IN_PROGRESS"

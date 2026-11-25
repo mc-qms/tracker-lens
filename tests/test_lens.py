@@ -50,7 +50,7 @@ def test_enriched_states():
     assert by_key[("FL-104", "Sterility")]["days"] == -2
     assert by_key[("FL-101", "TOC")]["state"] == "DUE_SOON"
     assert by_key[("FL-101", "TOC")]["days"] == 2
-    assert by_key[("FL-107", "Endotoxin")]["state"] == "AWAITING_REVIEW"
+    assert by_key[("FL-107", "Endotoxin")]["state"] == "RETURNED"
     assert by_key[("FL-111", "TOC")]["state"] == "COMPLETE"
 
 
@@ -127,7 +127,7 @@ def test_mark_received_writes_by_key(tmp_path):
     state = loaders.load_all(str(tmp_path), today=TODAY)
     enriched = core.enrich_tests(state["tests"], TODAY)
     fl106 = [t for t in enriched if t["sample_id"] == "FL-106"][0]
-    assert fl106["state"] == "AWAITING_REVIEW"
+    assert fl106["state"] == "RETURNED"
 
 
 def test_mark_reviewed_clears_the_queue(tmp_path):
@@ -149,7 +149,8 @@ def test_mark_reviewed_clears_the_queue(tmp_path):
 def _ask(q):
     state = loaded()
     enriched = core.enrich_tests(state["tests"], TODAY)
-    return ask.answer(q, enriched, core.em_excursions(state["em"]))
+    queue = core.find_arrivals(state["tests"], state["arrivals"])
+    return ask.answer(q, enriched, core.em_excursions(state["em"]), queue)
 
 
 def test_ask_overdue():
@@ -169,7 +170,11 @@ def test_ask_sample_and_unknown_sample():
 def test_ask_lab_awaiting_and_em():
     assert "FL-103" in _ask("What do we have at Meridian?")
     out = _ask("What's back awaiting review?")
-    assert "FL-107" in out and "FL-109" in out
+    # The register is the source: FL-106 arrived unreviewed; FL-107 and
+    # FL-109 are marked Reviewed on the sheet, so the lens must not
+    # call them awaiting.
+    assert "FL-106" in out and "arrivals.xlsx" in out
+    assert "FL-107" not in out and "FL-109" not in out
     out = _ask("Any EM excursions?")
     assert "Grade B" in out and "12" in out
 
@@ -184,9 +189,12 @@ def test_ask_why_and_unanswerable():
 def test_digest_facts_and_provenance():
     state = loaded()
     enriched = core.enrich_tests(state["tests"], TODAY)
-    facts = digest.build_facts(enriched, core.em_excursions(state["em"]), state["reports"])
+    queue = core.find_arrivals(state["tests"], state["arrivals"])
+    facts = digest.build_facts(enriched, core.em_excursions(state["em"]),
+                               state["reports"], queue)
     assert len(facts["overdue"]) == 2
-    assert len(facts["awaiting"]) == 2
+    assert len(facts["awaiting"]) == 1
+    assert facts["awaiting"][0]["sample_id"] == "FL-106"
     text = "\n".join(digest.render_digest(facts))
     assert "due in 2 days" in text
     assert "stability_tracker.xlsx could not be read" in text

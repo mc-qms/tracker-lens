@@ -61,7 +61,8 @@ def _set_cell(data_dir, filename, sheet, sample_id, test_name, column, value):
 
 def mark_received(data_dir, sample_id, test_name):
     """The user records, in the testing tracker, that a CoA is back:
-    Status -> RECEIVED (which the lens then shows as awaiting review)."""
+    Status -> RECEIVED (the lens then shows the CoA as back; the same
+    handling files the arrival as Reviewed in the register)."""
     return _set_cell(data_dir, TRACKER_FILE, TRACKER_SHEET,
                      sample_id, test_name, "Status", "RECEIVED")
 

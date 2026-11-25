@@ -8,12 +8,16 @@ themselves, including the ones that failed to load.
 from __future__ import annotations
 
 
-def build_facts(enriched_tests, excursions, reports):
+def build_facts(enriched_tests, excursions, reports, arrivals_queue=()):
     overdue = sorted([t for t in enriched_tests if t["state"] == "OVERDUE"],
                      key=lambda t: t["days"])
     due_soon = sorted([t for t in enriched_tests if t["state"] == "DUE_SOON"],
                       key=lambda t: t["days"])
-    awaiting = [t for t in enriched_tests if t["state"] == "AWAITING_REVIEW"]
+    # Awaiting review is a fact about the arrivals register, not the
+    # tracker: a CoA awaits review exactly when it has arrived and
+    # its register row is not yet marked Reviewed. The tracker cannot
+    # contradict the sheet it is read from.
+    awaiting = list(arrivals_queue)
     open_tests = [t for t in enriched_tests if t["state"] not in ("COMPLETE",)]
     labs = sorted({t["lab"] for t in open_tests})
     return {
