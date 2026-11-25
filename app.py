@@ -79,7 +79,7 @@ with st.sidebar:
     st.caption(
         f"Demo date: {state['today']:%B %d, %Y}. The fictional trackers are "
         "date-shifted at load so they are always current. Source files are "
-opened read-only — this demo never writes to them.
+        "opened read-only — this demo never writes to them."
     )
 
 tab_today, tab_tests, tab_coa, tab_arr, tab_em, tab_how = st.tabs(
