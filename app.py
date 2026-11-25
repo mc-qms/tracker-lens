@@ -91,12 +91,15 @@ tab_today, tab_tests, tab_coa, tab_arr, tab_em, tab_how = st.tabs(
 # ------------------------------------------------------------------- Today
 with tab_today:
     st.markdown(
-        "**This page is the lens.** The sample log, the testing "
-        "tracker, the EM sheet, and the arrivals register — every "
-        "source in the sidebar — collected into one view and computed "
-        "fresh. It is deliberately not another spreadsheet: the "
-        "tables live in the other tabs. This page is what they mean "
-        "this morning."
+        "**This page is the lens — and it is what talking to the agent "
+        "looks like.** The sample log, the testing tracker, the EM "
+        "sheet, and the arrivals register — every source in the sidebar "
+        "— collected into one view and computed fresh. In a real shop "
+        "there is no dashboard to open: the morning update below is the "
+        "message the agent sends you where you already work, and Ask "
+        "the lens, further down, is you talking back to it. It is "
+        "deliberately not another spreadsheet: the tables live in the "
+        "other tabs. This page is what they mean this morning."
     )
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Open outsourced tests", facts["open_count"])
