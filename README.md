@@ -20,7 +20,7 @@ do, and who may write:
 - **Sources are opened read-only, and the lens never writes.** The
   trackers stay exactly as their owners left them — with one
   exception, and it is the user's: when a CoA has arrived but the
-  tracker still shows the test as out, the Today tab offers a
+  tracker still shows the test as out, the Arrivals tab offers a
   mark-as-received button, and the user's click writes the Status
   cell, keyed by sample ID and test.
 - **Every date, limit, and count is computed in Python.** Due dates

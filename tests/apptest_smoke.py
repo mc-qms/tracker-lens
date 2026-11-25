@@ -23,6 +23,10 @@ assert not at.exception, at.exception
 md = "\n".join(m.value for m in at.markdown)
 assert "FL-103" in md and "5 days past" in md, "ask answer missing"
 print("ask flow OK")
+btn_labels = [b.label for b in at.button]
+assert "Mark as received in the tracker" in btn_labels, btn_labels
+assert "Acknowledge only" in btn_labels, btn_labels
+print("arrival handling buttons OK (Arrivals tab)")
 inbox = [s for s in at.selectbox if s.label == "Inbox"]
 assert inbox, "inbox selectbox not found"
 inbox[0].set_value("coa_fl107_endotoxin.txt").run()

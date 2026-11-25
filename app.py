@@ -80,7 +80,7 @@ with st.sidebar:
         f"Demo date: {state['today']:%B %d, %Y}. The fictional trackers are "
         "date-shifted at load so they are always current. Source files are "
         "opened read-only — the app writes only when you tell it to, "
-        "from the Today tab."
+        "from the Arrivals tab."
     )
 
 tab_today, tab_tests, tab_coa, tab_arr, tab_em, tab_how = st.tabs(
@@ -134,62 +134,37 @@ with tab_today:
         st.subheader("New arrivals")
         st.markdown(
             "Each CoA that lands is recorded in an arrivals register "
-            "(see “How this works”). Unreviewed arrivals show here until "
-            "you handle them; handling one files it as Reviewed, so it "
-            "leaves this list without leaving the record."
+            "(see “How this works”). These have arrived and are not yet "
+            "reviewed. Handling one happens on the **Arrivals tab**, "
+            "where the register row is in front of you — this page "
+            "reports; the sheets are where you act."
         )
         for a in arrivals:
             when = f" — arrived {a['date']:%b %d}" if a["date"] else ""
-            if a["tracker_status"] == "SENT":
-                st.markdown(
-                    f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
-                    "CoA received; the tracker still shows it as sent."
-                )
-                c1, c2 = st.columns(2)
-                if c1.button(
-                    "Mark as received in the tracker",
-                    key=f"recv_{a['sample_id']}_{a['test']}",
-                ):
-                    st.session_state["last_writes"] = [
-                        writeback.mark_received(str(DATA_DIR), a["sample_id"], a["test"]),
-                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
-                    ]
-                    st.cache_data.clear()
-                    st.rerun()
-                if c2.button(
-                    "Acknowledge only",
-                    key=f"ack_{a['sample_id']}_{a['test']}",
-                ):
-                    st.session_state["last_writes"] = [
-                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
-                    ]
-                    st.cache_data.clear()
-                    st.rerun()
-            else:
-                st.markdown(
-                    f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
-                    "CoA received; the tracker has already caught up."
-                )
-                if st.button(
-                    "Acknowledge",
-                    key=f"ack_{a['sample_id']}_{a['test']}",
-                ):
-                    st.session_state["last_writes"] = [
-                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
-                    ]
-                    st.cache_data.clear()
-                    st.rerun()
-        st.caption(
-            "The lens never writes on its own. These buttons are you "
-            "writing — the app just knows which file, which row, and "
-            "which column. Every write is keyed by sample ID and test, "
-            "never by row number."
-        )
+            caught = ("the tracker still shows it as sent."
+                      if a["tracker_status"] == "SENT"
+                      else "the tracker has already caught up.")
+            st.markdown(
+                f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
+                f"CoA received; {caught}"
+            )
+
 
 # ------------------------------------------------------------------ Testing
 with tab_tests:
     st.subheader("Every outsourced test, from every tracker, in one view")
     attention_only = st.checkbox("Only show items needing attention", value=True)
+
+    def coa_note(t):
+        for a in state["arrivals"]:
+            if a["sample_id"] != t["sample_id"]:
+                continue
+            if (t["test"].lower() in a["test"].lower()
+                    or a["test"].lower() in t["test"].lower()):
+                d = f"Arrived {a['date']:%b %d}" if a["date"] else "Arrived"
+                return d + (" · reviewed" if a["reviewed"] else " · unreviewed")
+        return "—"
+
     rows = []
     for t in enriched:
         if attention_only and t["state"] not in ("OVERDUE", "DUE_SOON", "RETURNED"):
@@ -210,6 +185,7 @@ with tab_tests:
             "Sent": t["sent"].isoformat() if t["sent"] else "",
             "Due": t["due"].isoformat() if t["due"] else "",
             "Status": STATE_LABELS[t["state"]],
+            "CoA": coa_note(t),
             "When": when,
             "Result": t["result"] or "",
         })
@@ -287,7 +263,7 @@ with tab_coa:
             "is accountable for it, so the agent prepares the entry and shows "
             "its evidence; the human enters it. (The one write this demo "
             "does make is also the human's — the mark-as-received button on "
-            "the Today tab.)"
+            "the Arrivals tab.)"
         )
 
 # ----------------------------------------------------------------- Arrivals
@@ -314,6 +290,57 @@ with tab_arr:
         "Power Automate flow writes when a lab's CoA email lands; "
         "here it is arrivals.xlsx, kept with the other demo sources."
     )
+
+    if arrivals:
+        st.subheader("Handle unreviewed arrivals")
+        st.markdown(
+            "The lens never writes on its own. These buttons are you "
+            "writing — the app just knows which file, which row, and "
+            "which column. Every write is keyed by sample ID and test, "
+            "never by row number."
+        )
+        for a in arrivals:
+            when = f" — arrived {a['date']:%b %d}" if a["date"] else ""
+            if a["tracker_status"] == "SENT":
+                st.markdown(
+                    f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
+                    "CoA received; the tracker still shows it as sent."
+                )
+                c1, c2 = st.columns(2)
+                if c1.button(
+                    "Mark as received in the tracker",
+                    key=f"recv_{a['sample_id']}_{a['test']}",
+                ):
+                    st.session_state["last_writes"] = [
+                        writeback.mark_received(str(DATA_DIR), a["sample_id"], a["test"]),
+                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
+                    ]
+                    st.cache_data.clear()
+                    st.rerun()
+                if c2.button(
+                    "Acknowledge only",
+                    key=f"ack_{a['sample_id']}_{a['test']}",
+                ):
+                    st.session_state["last_writes"] = [
+                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
+                    ]
+                    st.cache_data.clear()
+                    st.rerun()
+            else:
+                st.markdown(
+                    f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
+                    "CoA received; the tracker has already caught up."
+                )
+                if st.button(
+                    "Acknowledge",
+                    key=f"ack_{a['sample_id']}_{a['test']}",
+                ):
+                    st.session_state["last_writes"] = [
+                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
+                    ]
+                    st.cache_data.clear()
+                    st.rerun()
+
 
 # ----------------------------------------------------------------------- EM
 with tab_em:
@@ -379,7 +406,8 @@ what Python computes, what the model may do, and who may write:
 
 In the connected pattern, the agent knows things the trackers don't —
 it watches the inbox, so it knows a CoA arrived the moment it lands.
-The Today tab shows that gap, and closing it is still a human act:
+The Arrivals tab shows that gap — the register row in front of you —
+and closing it is still a human act:
 you click "Mark as received," and only then does anything write. The
 write is keyed, never positional — the row where Sample # = FL-106
 and Test = Endotoxin, the Status column — because rows move when
