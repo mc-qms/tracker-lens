@@ -96,29 +96,26 @@ def test_oos_coa_flags():
     assert "escalate" in dict(update["sets"])["Status"]
 
 
-def _inbox_parsed():
-    inbox = os.path.join(DATA, "coa_inbox")
-    out = []
-    for name in sorted(os.listdir(inbox)):
-        with open(os.path.join(inbox, name), encoding="utf-8") as f:
-            out.append(extract.parse_coa_text(f.read()))
-    return out
-
-
 def test_arrivals_detected():
     state = loaded()
-    arrivals = core.find_arrivals(state["tests"], _inbox_parsed())
-    # FL-106's CoA is in the inbox but its tracker row still says sent.
-    # FL-107 and FL-109 are already marked received — not arrivals.
+    arrivals = core.find_arrivals(state["tests"], state["arrivals"])
+    # FL-106's arrival is unreviewed and its tracker row still says
+    # sent. FL-107 and FL-109 arrived too, but both are filed as
+    # Reviewed in the register — they are not in the daily queue.
     assert [(a["sample_id"], a["test"]) for a in arrivals] == [("FL-106", "Endotoxin")]
+    assert arrivals[0]["tracker_status"] == "SENT"
+
+
+def _copy_data(tmp_path):
+    import shutil
+    for name in ("sample_log.xlsx", "testing_tracker.xlsx",
+                 "em_trending.xlsx", "stability_tracker.xlsx", "arrivals.xlsx"):
+        shutil.copy(os.path.join(DATA, name), tmp_path / name)
 
 
 def test_mark_received_writes_by_key(tmp_path):
     import openpyxl
-    import shutil
-    for name in ("sample_log.xlsx", "testing_tracker.xlsx",
-                 "em_trending.xlsx", "stability_tracker.xlsx"):
-        shutil.copy(os.path.join(DATA, name), tmp_path / name)
+    _copy_data(tmp_path)
     rec = writeback.mark_received(str(tmp_path), "FL-106", "Endotoxin")
     assert rec["old"] == "Sent" and rec["new"] == "RECEIVED"
     wb = openpyxl.load_workbook(tmp_path / "testing_tracker.xlsx")
@@ -131,6 +128,22 @@ def test_mark_received_writes_by_key(tmp_path):
     enriched = core.enrich_tests(state["tests"], TODAY)
     fl106 = [t for t in enriched if t["sample_id"] == "FL-106"][0]
     assert fl106["state"] == "AWAITING_REVIEW"
+
+
+def test_mark_reviewed_clears_the_queue(tmp_path):
+    import openpyxl
+    _copy_data(tmp_path)
+    rec = writeback.mark_reviewed(str(tmp_path), "FL-106", "Endotoxin")
+    assert rec["column"] == "Reviewed" and rec["new"] == "Yes"
+    wb = openpyxl.load_workbook(tmp_path / "arrivals.xlsx")
+    ws = wb["Arrivals"]
+    cells = {(r[1].value, r[2].value): r[5].value for r in ws.iter_rows(min_row=2)}
+    assert cells[("FL-106", "Endotoxin")] == "Yes"
+    assert cells[("FL-107", "Endotoxin")] == "Yes"  # was already reviewed; unchanged
+    state = loaders.load_all(str(tmp_path), today=TODAY)
+    assert core.find_arrivals(state["tests"], state["arrivals"]) == []
+    # The record stays: all three arrivals are still in the register.
+    assert len(state["arrivals"]) == 3
 
 
 def test_digest_facts_and_provenance():

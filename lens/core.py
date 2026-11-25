@@ -154,30 +154,36 @@ def review_coa(extracted, tests):
     return {"checks": checks, "verdict": verdict, "matched": matched, "spec": spec, "spec_key": spec_key}
 
 
-def find_arrivals(tests, extracted_list):
-    """CoAs that have arrived while their tracker rows still show the
-    tests as out. The lens knows (it reads the inbox); the tracker
-    does not. Matching is strict — same sample, and the test name must
-    match the tracker row's test — because an arrival is what the
-    Today tab offers to write back, and a write never guesses."""
-    arrivals = []
-    for ex in extracted_list:
-        sid = ex.get("sample_id")
-        test_name = ex.get("test") or ""
-        if not sid:
+def find_arrivals(tests, register):
+    """Unreviewed arrivals from the arrivals register, each joined to
+    its tracker row so the Today tab can show whether the tracker has
+    caught up. The register is the record of what arrived; Reviewed
+    is the disposition — an arrival leaves the daily list when it is
+    reviewed, never when it is deleted. Matching to the tracker is
+    strict (same sample, test name must match) because an arrival is
+    what the Today tab offers to write back, and a write never
+    guesses."""
+    out = []
+    for a in register:
+        if a["reviewed"]:
             continue
+        matched = None
         for t in tests:
-            if t["sample_id"] != sid or t["status"] != "SENT":
+            if t["sample_id"] != a["sample_id"]:
                 continue
-            if (t["test"].lower() in test_name.lower()
-                    or test_name.lower() in t["test"].lower()):
-                arrivals.append({
-                    "sample_id": sid,
-                    "test": t["test"],
-                    "lab": t["lab"],
-                })
+            if (t["test"].lower() in a["test"].lower()
+                    or a["test"].lower() in t["test"].lower()):
+                matched = t
                 break
-    return arrivals
+        out.append({
+            "sample_id": a["sample_id"],
+            "test": matched["test"] if matched else a["test"],
+            "lab": a["lab"] or (matched["lab"] if matched else ""),
+            "date": a["date"],
+            "attachment": a["attachment"],
+            "tracker_status": matched["status"] if matched else None,
+        })
+    return out
 
 
 def proposed_update(extracted, review):

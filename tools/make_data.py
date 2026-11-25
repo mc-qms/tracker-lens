@@ -104,4 +104,21 @@ for row in stab:
     ws.append(list(row))
 wb.save(os.path.join(BASE, "stability_tracker.xlsx"))
 
-print("wrote 4 spreadsheets to", BASE)
+# ----------------------------------------------------------------- arrivals
+# The arrivals register: in a real shop a Power Automate flow appends a
+# row here when a contract lab's CoA email lands. The Reviewed column is
+# the disposition — the daily view shows only unreviewed arrivals.
+wb = Workbook()
+ws = wb.active
+ws.title = "Arrivals"
+ws.append(["Date", "Sample #", "Test", "Lab", "Attachment", "Reviewed"])
+arrivals = [
+    (d(-4), "FL-107", "Endotoxin", "Pacific BioTest", "coa_fl107_endotoxin.txt", "Yes"),
+    (d(-3), "FL-109", "Bioburden", "Pacific BioTest", "coa_fl109_bioburden.txt", "Yes"),
+    (d(0), "FL-106", "Endotoxin", "Pacific BioTest", "coa_fl106_endotoxin.txt", None),
+]
+for row in arrivals:
+    ws.append(list(row))
+wb.save(os.path.join(BASE, "arrivals.xlsx"))
+
+print("wrote 5 spreadsheets to", BASE)

@@ -90,4 +90,9 @@ limits in `lens/core.py` are demo values.
   LLM route)
 - `lens/digest.py` — the morning update: deterministic facts,
   plain-language wording, source provenance
-- `data/` — the sprawl itself, plus the CoA inbox
+- `lens/writeback.py` — the writes, all of them the user's: mark a
+  tracker row received, file an arrival as reviewed, each keyed by
+  sample ID and test
+- `data/` — the sprawl itself, the CoA inbox, and the arrivals
+  register (`arrivals.xlsx`: one row per CoA that has landed, with
+  a Reviewed disposition column)

@@ -190,6 +190,40 @@ def load_stability(path):
     return [], FileReport(name, "ok", 0, "loaded")
 
 
+def load_arrivals(path):
+    """The arrivals register: one row per CoA that has landed, with a
+    Reviewed disposition column. Written by plumbing (a Power Automate
+    flow in a real shop); read by the lens like every other source."""
+    name = os.path.basename(path)
+    try:
+        df = _read(path)
+    except Exception as e:
+        return [], FileReport(name, "failed", 0, f"could not be opened: {e}")
+    col, err = _find_column(df, SAMPLE_ID, "sample identifier")
+    if err:
+        return [], FileReport(name, "failed", 0, err)
+    test_col, _ = _find_column(df, ["test"], "test")
+    lab_col, _ = _find_column(df, ["lab", "laboratory"], "lab")
+    date_col, _ = _find_column(df, ["date", "date received", "received date"], "date")
+    att_col, _ = _find_column(df, ["attachment", "file"], "attachment")
+    rev_col, _ = _find_column(df, ["reviewed", "acknowledged"], "reviewed")
+    records = []
+    for _, row in df.iterrows():
+        sid = str(row[col]).strip()
+        if not sid or sid.lower() == "nan":
+            continue
+        raw_rev = str(row[rev_col]).strip().lower() if rev_col else ""
+        records.append({
+            "sample_id": sid,
+            "test": str(row[test_col]).strip() if test_col else "",
+            "lab": str(row[lab_col]).strip() if lab_col else "",
+            "date": parse_date(row[date_col]) if date_col else None,
+            "attachment": str(row[att_col]).strip() if att_col else "",
+            "reviewed": raw_rev in ("yes", "y", "true", "reviewed", "acknowledged"),
+        })
+    return records, FileReport(name, "ok", len(records), "loaded")
+
+
 def load_all(data_dir, today=None):
     """Load every source, then date-shift the whole set together so the
     demo is always current: the newest shipped sample is 1 day old.
@@ -199,7 +233,8 @@ def load_all(data_dir, today=None):
     tests, r2 = load_testing_tracker(os.path.join(data_dir, "testing_tracker.xlsx"))
     em, r3 = load_em(os.path.join(data_dir, "em_trending.xlsx"))
     _, r4 = load_stability(os.path.join(data_dir, "stability_tracker.xlsx"))
-    reports = [r1, r2, r3, r4]
+    arrivals, r5 = load_arrivals(os.path.join(data_dir, "arrivals.xlsx"))
+    reports = [r1, r2, r3, r4, r5]
 
     sent_dates = [t["sent"] for t in tests if t["sent"]]
     shift = 0
@@ -216,10 +251,14 @@ def load_all(data_dir, today=None):
         for e in em:
             if e["date"]:
                 e["date"] += delta
+        for a in arrivals:
+            if a["date"]:
+                a["date"] += delta
     return {
         "samples": samples,
         "tests": tests,
         "em": em,
+        "arrivals": arrivals,
         "reports": reports,
         "shift_days": shift,
         "today": today,

@@ -20,7 +20,7 @@ def ensure_data():
     materialize them now — the app then reads real .xlsx files from
     disk, exactly as it would a lab's own trackers."""
     needed = ["sample_log.xlsx", "testing_tracker.xlsx",
-              "em_trending.xlsx", "stability_tracker.xlsx"]
+              "em_trending.xlsx", "stability_tracker.xlsx", "arrivals.xlsx"]
     if all((DATA_DIR / n).exists() for n in needed):
         return
     import importlib.util
@@ -59,13 +59,7 @@ excursions = core.em_excursions(state["em"])
 facts = digest.build_facts(enriched, excursions, state["reports"])
 materials = {s["sample_id"]: s["material"] for s in state["samples"]}
 
-inbox_parsed = []
-for _p in sorted(INBOX.glob("*.txt")):
-    try:
-        inbox_parsed.append(extract.parse_coa_text(_p.read_text(encoding="utf-8")))
-    except Exception:
-        pass
-arrivals = core.find_arrivals(state["tests"], inbox_parsed)
+arrivals = core.find_arrivals(state["tests"], state["arrivals"])
 
 st.title("Tracker Lens")
 st.caption(
@@ -105,39 +99,68 @@ with tab_today:
     for line in digest.render_digest(facts):
         st.markdown(line)
 
-    if "last_write" in st.session_state:
-        w = st.session_state.pop("last_write")
-        st.success(
-            f"You updated {w['file']} (sheet “{w['sheet']}”): the row where "
-            f"Sample # = {w['sample_id']} and Test = {w['test']} — "
-            f"{w['column']} changed from “{w['old']}” to “{w['new']}”. "
-            "The tracker now shows this test as back and awaiting review."
-        )
+    if "last_writes" in st.session_state:
+        for w in st.session_state.pop("last_writes"):
+            old = w["old"] if w["old"] not in (None, "") else "blank"
+            st.success(
+                f"You updated {w['file']} (sheet “{w['sheet']}”): the row "
+                f"where Sample # = {w['sample_id']} and Test = {w['test']} — "
+                f"{w['column']} changed from “{old}” to “{w['new']}”."
+            )
     if arrivals:
-        st.subheader("Arrived — but the tracker doesn't know yet")
+        st.subheader("New arrivals")
         st.markdown(
-            "In the connected pattern, arrivals are recorded as they "
-            "land (see “How this works”), so the lens knows what the "
-            "trackers don't. These CoAs have arrived, but their tracker "
-            "rows still show the tests as out:"
+            "Each CoA that lands is recorded in an arrivals register "
+            "(see “How this works”). Unreviewed arrivals show here until "
+            "you handle them; handling one files it as Reviewed, so it "
+            "leaves this list without leaving the record."
         )
         for a in arrivals:
-            st.markdown(
-                f"**{a['sample_id']} {a['test']}** ({a['lab']}) — "
-                "CoA received; the tracker still shows it as sent."
-            )
-            if st.button(
-                f"Mark {a['sample_id']} {a['test']} as received in the tracker",
-                key=f"recv_{a['sample_id']}_{a['test']}",
-            ):
-                st.session_state["last_write"] = writeback.mark_received(
-                    str(DATA_DIR), a["sample_id"], a["test"])
-                st.cache_data.clear()
-                st.rerun()
+            when = f" — arrived {a['date']:%b %d}" if a["date"] else ""
+            if a["tracker_status"] == "SENT":
+                st.markdown(
+                    f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
+                    "CoA received; the tracker still shows it as sent."
+                )
+                c1, c2 = st.columns(2)
+                if c1.button(
+                    "Mark as received in the tracker",
+                    key=f"recv_{a['sample_id']}_{a['test']}",
+                ):
+                    st.session_state["last_writes"] = [
+                        writeback.mark_received(str(DATA_DIR), a["sample_id"], a["test"]),
+                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
+                    ]
+                    st.cache_data.clear()
+                    st.rerun()
+                if c2.button(
+                    "Acknowledge only",
+                    key=f"ack_{a['sample_id']}_{a['test']}",
+                ):
+                    st.session_state["last_writes"] = [
+                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
+                    ]
+                    st.cache_data.clear()
+                    st.rerun()
+            else:
+                st.markdown(
+                    f"**{a['sample_id']} {a['test']}** ({a['lab']}){when} — "
+                    "CoA received; the tracker has already caught up."
+                )
+                if st.button(
+                    "Acknowledge",
+                    key=f"ack_{a['sample_id']}_{a['test']}",
+                ):
+                    st.session_state["last_writes"] = [
+                        writeback.mark_reviewed(str(DATA_DIR), a["sample_id"], a["test"]),
+                    ]
+                    st.cache_data.clear()
+                    st.rerun()
         st.caption(
-            "The lens never writes on its own. This button is you writing — "
-            "the app just knows which file, which row, and which column. "
-            "The write is keyed by sample ID and test, never by row number."
+            "The lens never writes on its own. These buttons are you "
+            "writing — the app just knows which file, which row, and "
+            "which column. Every write is keyed by sample ID and test, "
+            "never by row number."
         )
 
 # ------------------------------------------------------------------ Testing
@@ -341,6 +364,14 @@ that something arrived and interprets nothing. The lens reads the
 Arrivals list each morning alongside the trackers, reads the
 attachment itself, and does the checking in Python. Record wide,
 interpret in one place, and let people make the entries that count.
+
+The register carries one more column: Reviewed. The daily view
+shows only unreviewed arrivals, so once you have handled one —
+marked the tracker received, or simply acknowledged it — it
+leaves the morning list. It does not leave the register. The
+record of the arrival stays, filed under Reviewed, and the queue
+is empty exactly when everything that arrived has been seen by a
+person.
 
 **In a real company**, the same pattern runs on the company's own
 harness — Copilot Studio with Power Automate and the Graph API, Lists
