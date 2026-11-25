@@ -8,6 +8,7 @@ at.run()
 assert not at.exception, at.exception
 print("tabs:", [t.label for t in at.tabs])
 assert "Arrivals" in [t.label for t in at.tabs], "arrivals tab missing"
+assert "Collected sheet" in [t.label for t in at.tabs], "collected sheet tab missing"
 md = "\n".join(m.value for m in at.markdown)
 assert "Here's the update for today" in md, "digest missing"
 assert "due in 2 days" in md, "due-soon line missing"

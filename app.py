@@ -80,11 +80,11 @@ with st.sidebar:
         f"Demo date: {state['today']:%B %d, %Y}. The fictional trackers are "
         "date-shifted at load so they are always current. Source files are "
         "opened read-only — with one designated exception: a Status "
-        "edit on the Testing tracker tab writes through to the tracker."
+        "edit on the Collected sheet tab writes through to the tracker."
     )
 
 tab_today, tab_tests, tab_coa, tab_arr, tab_em, tab_how = st.tabs(
-    ["Today", "Testing tracker", "CoA intake", "Arrivals",
+    ["Today", "Collected sheet", "CoA intake", "Arrivals",
      "EM trending", "How this works"]
 )
 
@@ -147,7 +147,10 @@ with tab_today:
 with tab_tests:
     st.subheader("The collected sheet — every outsourced test, in one view")
     st.markdown(
-        "This is the lens sheet: the trackers, collected. One column "
+        "This tab is the sheet Power Query would pull: the trackers, "
+        "collected into one view, with the sample log's materials and "
+        "the arrivals register joined in. (Here Python builds it "
+        "instead of a query.) One column "
         "is designated for write-back — **Status**, the status as "
         "recorded in the tracker. Edit it here and the change is "
         "written through to the source workbook, on the row keyed by "
@@ -399,7 +402,7 @@ what Python computes, what the model may do, and who may write:
 
 **Writing back**
 
-The collected sheet — the Testing tracker tab — has one designated
+The collected sheet — the Collected sheet tab — has one designated
 column: Status, the status as recorded in the tracker. Edit it
 there and the change is written through to the source workbook: the
 row where Sample # = FL-106 and Test = Endotoxin, the Status

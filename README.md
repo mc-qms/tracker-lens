@@ -86,7 +86,7 @@ limits in `lens/core.py` are demo values.
 
 ## Layout
 
-- `app.py` — the Streamlit app (six tabs: Today, Testing tracker,
+- `app.py` — the Streamlit app (six tabs: Today, Collected sheet,
   CoA intake, Arrivals, EM trending, How this works)
 - `lens/loaders.py` — read and normalize the messy spreadsheets
 - `lens/core.py` — due-date math, specification checks, EM limits,
