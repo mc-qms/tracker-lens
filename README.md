@@ -1,0 +1,88 @@
+# Tracker Lens
+
+**A way to make messy Excel situations bearable.**
+
+A QC lab's real tracking lives in a sprawl of spreadsheets — a sample
+log here, an outsourced-testing tracker there, an EM sheet nobody
+wants to open — and keeping them current is manual, fragile work.
+Tracker Lens puts one governed lens over the sprawl: it reads the
+trackers a fictional lab already keeps (Fictitious Labs Inc., QC
+Microbiology & Sample Management) and produces the things the sprawl
+can't — a plain-language morning update, one unified view of every
+outsourced test, a first-pass review when a certificate of analysis
+comes back, and EM trending with excursions flagged.
+
+## The rules it runs on
+
+- **Sources are opened read-only and never written.** The trackers
+  stay exactly as their owners left them.
+- **Every date, limit, and count is computed in Python.** Due dates
+  come from sent dates plus promised turnaround times; specification
+  checks compare numbers against registered limits.
+- **The language model has one narrow job:** reading an incoming CoA
+  into structured fields (used for pasted CoAs when an API key is
+  configured in Streamlit Secrets; the bundled inbox is read by a
+  deterministic parser). Python checks whatever was extracted before
+  anything is shown as a finding.
+- **A human is the write path.** Tracker changes are prepared as
+  exact, checkable entries — sample ID, column, value, and the quoted
+  CoA evidence behind them — for a person to enter under their own
+  name. An agent that silently edits a controlled record is a
+  data-integrity problem; an agent that prepares verifiable entries
+  is a tool.
+- **Broken sources are reported, not hidden.** One of the four demo
+  trackers (`stability_tracker.xlsx`) has a renamed identifier column
+  and cannot be read; the morning update says so, and says what is
+  therefore missing from the picture.
+
+In a real company, the same pattern runs on the company's own
+harness — Copilot Studio with Power Automate and the Graph API,
+SharePoint Lists instead of loose workbooks, or Streamlit inside
+Snowflake — behind their identity and access controls, and outside
+the validated record entirely: the agent works the information layer
+(inboxes, trackers, drafts), and people still make every entry that
+counts, in the validated systems, exactly as they do today. This
+demo proves the pattern, not the deployment.
+
+## Run it
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Optional: to enable the language-model route for pasted CoAs, add an
+OpenRouter key to Streamlit Secrets:
+
+```toml
+OPENROUTER_API_KEY = "..."
+```
+
+## Tests
+
+```bash
+python -m pytest tests/ -q          # core logic: loaders, dates, specs, EM, digest
+python tests/apptest_smoke.py       # the app itself, headless
+```
+
+## Demo data
+
+Everything is fictional. `tools/make_data.py` regenerates the four
+spreadsheets and the CoA inbox. Dates in the fixtures are old on
+purpose: the loader date-shifts the whole set at runtime (one shift
+for every file, so cross-file relationships hold) so the trackers
+are always current. Specifications and EM limits in `lens/core.py`
+are demo values.
+
+## Layout
+
+- `app.py` — the Streamlit app (five tabs: Today, Testing tracker,
+  CoA intake, EM trending, How this works)
+- `lens/loaders.py` — read and normalize the messy spreadsheets
+- `lens/core.py` — due-date math, specification checks, EM limits,
+  CoA review, proposed tracker updates
+- `lens/extract.py` — CoA extraction (deterministic parser; optional
+  LLM route)
+- `lens/digest.py` — the morning update: deterministic facts,
+  plain-language wording, source provenance
+- `data/` — the sprawl itself, plus the CoA inbox

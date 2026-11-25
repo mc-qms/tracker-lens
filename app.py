@@ -1,0 +1,250 @@
+import streamlit as st
+
+st.set_page_config(page_title="Tracker Lens — Fictitious Labs QC", layout="wide")
+
+import os
+from datetime import date
+from pathlib import Path
+
+import pandas as pd
+
+from lens import core, digest, extract, loaders
+
+DATA_DIR = Path(__file__).parent / "data"
+INBOX = DATA_DIR / "coa_inbox"
+
+STATE_LABELS = {
+    "OVERDUE": "Overdue",
+    "DUE_SOON": "Due soon",
+    "IN_PROGRESS": "In progress",
+    "AWAITING_REVIEW": "CoA back — awaiting review",
+    "COMPLETE": "Complete",
+}
+
+
+def api_key():
+    try:
+        return st.secrets["OPENROUTER_API_KEY"]
+    except Exception:
+        return None
+
+
+@st.cache_data(show_spinner=False)
+def load(today_str):
+    return loaders.load_all(str(DATA_DIR), today=date.fromisoformat(today_str))
+
+
+state = load(date.today().isoformat())
+enriched = core.enrich_tests(state["tests"], state["today"])
+excursions = core.em_excursions(state["em"])
+facts = digest.build_facts(enriched, excursions, state["reports"])
+materials = {s["sample_id"]: s["material"] for s in state["samples"]}
+
+st.title("Tracker Lens")
+st.caption(
+    "Fictitious Labs Inc. — QC Microbiology & Sample Management. "
+    "A way to make messy Excel situations bearable: one lens over the "
+    "tracker spreadsheets the lab already keeps."
+)
+
+with st.sidebar:
+    st.subheader("Sources")
+    for r in state["reports"]:
+        if r.status == "ok":
+            st.markdown(f"✓ **{r.filename}** — {r.rows} rows")
+        else:
+            st.markdown(f"✗ **{r.filename}** — could not be read")
+            st.caption(r.message)
+    st.divider()
+    st.caption(
+        f"Demo date: {state['today']:%B %d, %Y}. The fictional trackers are "
+        "date-shifted at load so they are always current. Source files are "
+        "opened read-only."
+    )
+
+tab_today, tab_tests, tab_coa, tab_em, tab_how = st.tabs(
+    ["Today", "Testing tracker", "CoA intake", "EM trending", "How this works"]
+)
+
+# ------------------------------------------------------------------- Today
+with tab_today:
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Open outsourced tests", facts["open_count"])
+    c2.metric("Overdue", len(facts["overdue"]))
+    c3.metric("CoAs awaiting review", len(facts["awaiting"]))
+    c4.metric("EM excursions (alert+)", len(facts["excursions"]))
+    st.subheader("The morning update")
+    for line in digest.render_digest(facts):
+        st.markdown(line)
+
+# ------------------------------------------------------------------ Testing
+with tab_tests:
+    st.subheader("Every outsourced test, from every tracker, in one view")
+    attention_only = st.checkbox("Only show items needing attention", value=True)
+    rows = []
+    for t in enriched:
+        if attention_only and t["state"] not in ("OVERDUE", "DUE_SOON", "AWAITING_REVIEW"):
+            continue
+        if t["days"] is None:
+            when = "—"
+        elif t["days"] < 0:
+            when = f"{abs(t['days'])} days overdue"
+        elif t["days"] == 0:
+            when = "due today"
+        else:
+            when = f"due in {t['days']} days"
+        rows.append({
+            "Sample": t["sample_id"],
+            "Material": materials.get(t["sample_id"], ""),
+            "Test": t["test"],
+            "Lab": t["lab"],
+            "Sent": t["sent"].isoformat() if t["sent"] else "",
+            "Due": t["due"].isoformat() if t["due"] else "",
+            "Status": STATE_LABELS[t["state"]],
+            "When": when,
+            "Result": t["result"] or "",
+        })
+    if rows:
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+    else:
+        st.info("Nothing needs attention right now.")
+    st.caption(
+        "Due dates and day counts are computed by the app from the trackers' "
+        "own sent dates and promised turnaround times — never estimated."
+    )
+
+# ---------------------------------------------------------------------- CoA
+with tab_coa:
+    st.subheader("A certificate of analysis came back. Now what?")
+    st.markdown(
+        "In the connected version of this pattern, the agent notices the CoA "
+        "arriving — an Outlook inbox, a Teams channel — reads it, and checks "
+        "it. Here, pick one from the demo inbox or paste the text."
+    )
+    source = st.radio("CoA source", ["Demo inbox", "Paste text"], horizontal=True)
+    coa_text = ""
+    if source == "Demo inbox":
+        files = sorted(p.name for p in INBOX.glob("*.txt"))
+        pick = st.selectbox("Inbox", files)
+        coa_text = (INBOX / pick).read_text(encoding="utf-8")
+        with st.expander("Read the CoA as received"):
+            st.text(coa_text)
+    else:
+        coa_text = st.text_area("CoA text", height=220)
+
+    if st.button("Read and review this CoA", type="primary"):
+        try:
+            parsed, route = extract.extract_coa(coa_text, api_key=api_key())
+            review = core.review_coa(parsed, state["tests"])
+            update = core.proposed_update(parsed, review)
+            st.session_state["coa"] = (parsed, route, review, update)
+        except Exception as e:
+            st.error(str(e))
+
+    if "coa" in st.session_state:
+        parsed, route, review, update = st.session_state["coa"]
+        st.caption(f"Read by: {route}")
+        fields = {
+            "Sample": parsed.get("sample_id"),
+            "Test": parsed.get("test"),
+            "Lab": parsed.get("lab"),
+            "Result": (f"{parsed['value']:g} {parsed.get('unit') or ''}".strip()
+                       if parsed.get("value") is not None else None),
+            "Method": parsed.get("method"),
+            "Specification (as stated)": parsed.get("spec_text"),
+        }
+        st.table(pd.DataFrame(
+            [{"Field": k, "Value": v or "— not stated —"} for k, v in fields.items()]
+        ))
+        st.subheader("First-pass review")
+        for c in review["checks"]:
+            mark = "PASS" if c["status"] == "PASS" else "FLAG"
+            st.markdown(f"**{mark}** — {c['label']}: {c['detail']}")
+            if c["evidence"]:
+                st.caption(f"CoA states: “{c['evidence']}”")
+        if review["verdict"] == "PASS":
+            st.success("First pass clean. A human still dispositions the result.")
+        else:
+            st.warning("Flags raised. Nothing closes until a human dispositions them.")
+        st.subheader("Proposed tracker update — yours to type in")
+        lines = [f"File: {update['file']}",
+                 f"Find the row where {update['key_column']} = {update['key_value']}"]
+        lines += [f"Set {col} → {val}" for col, val in update["sets"]]
+        st.code("\n".join(lines))
+        st.caption(
+            "Addressed by sample ID and column name, never by row number — rows "
+            "move when people sort. The app never writes the spreadsheet: in a "
+            "quality environment the person entering a record is accountable "
+            "for it, so the agent prepares the entry and shows its evidence; "
+            "the human types it in."
+        )
+
+# ----------------------------------------------------------------------- EM
+with tab_em:
+    st.subheader("Environmental monitoring — viable air, by room")
+    em = [e for e in state["em"] if e["type"].strip().lower() == "viable air" and e["date"]]
+    if em:
+        df = pd.DataFrame(em)
+        pivot = df.pivot_table(index="date", columns="room", values="result", aggfunc="max").sort_index()
+        st.line_chart(pivot)
+    if excursions:
+        st.markdown("**Excursions against the demo limits**")
+        st.dataframe(pd.DataFrame([{
+            "Date": e["date"].isoformat(),
+            "Room": e["room"],
+            "Location": e["location"],
+            "Result (CFU)": e["result"],
+            "Alert": e["alert"],
+            "Action": e["action"],
+            "Level": e["level"],
+        } for e in excursions]), width="stretch", hide_index=True)
+    else:
+        st.info("No excursions in the current data.")
+    st.caption("Limits shown are demo values by area grade (B: 5/10, C: 25/50, D: 50/100 CFU, alert/action).")
+
+# ------------------------------------------------------------- How it works
+with tab_how:
+    st.subheader("What this actually does")
+    st.markdown(
+        """
+This demo is a working model of a pattern for a familiar problem: a QC
+lab's real tracking lives in a sprawl of spreadsheets — a sample log
+here, an outsourced-testing tracker there, an EM sheet nobody wants to
+open — and keeping them current is manual, fragile work.
+
+**The rules it runs on**
+
+- **Sources are opened read-only and never written.** The trackers stay
+  exactly as their owners left them.
+- **Every date, limit, and count is computed in Python.** Due dates come
+  from sent dates plus promised turnaround times; specification checks
+  compare numbers against registered limits. Nothing that matters is
+  estimated by a model.
+- **The language model has one narrow job:** reading incoming documents
+  (a CoA, in this demo) into structured fields. When a key is configured
+  in Streamlit Secrets, pasted CoAs can be read that way; the bundled
+  inbox is read by a deterministic parser. Either way, Python checks
+  whatever was extracted before anything is shown as a finding.
+- **A human is the write path.** Tracker changes are prepared as exact,
+  checkable entries — sample ID, column, value, and the quoted evidence
+  behind them — for a person to enter under their own name. An agent
+  that silently edits a controlled record is a data-integrity problem;
+  an agent that prepares verifiable entries is a tool.
+- **Broken sources are reported, not hidden.** One of the four demo
+  trackers has a renamed column and cannot be read; the morning update
+  says so, and says what is therefore missing from the picture.
+
+**In a real company**, the same pattern runs on the company's own
+harness — Copilot Studio with Power Automate and the Graph API, Lists
+instead of loose workbooks, or Streamlit inside Snowflake — behind
+their identity and access controls — and outside the validated
+record entirely: the agent works the information layer (inboxes,
+trackers, drafts), and people still make every entry that counts,
+in the validated systems, exactly as they do today. This demo
+proves the pattern, not the deployment.
+
+**Demo data:** Fictitious Labs Inc. is fictional, as are its contract
+labs and results. Dates are shifted at load so the trackers are always
+current. Specifications and EM limits shown are demo values.
+"""
+    )
