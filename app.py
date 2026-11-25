@@ -116,9 +116,10 @@ with tab_today:
     if arrivals:
         st.subheader("Arrived — but the tracker doesn't know yet")
         st.markdown(
-            "In the connected pattern the agent watches the inbox, so it "
-            "knows the moment a CoA lands. These CoAs are in the inbox, "
-            "but their tracker rows still show the tests as out:"
+            "In the connected pattern, arrivals are recorded as they "
+            "land (see “How this works”), so the lens knows what the "
+            "trackers don't. These CoAs have arrived, but their tracker "
+            "rows still show the tests as out:"
         )
         for a in arrivals:
             st.markdown(
@@ -326,6 +327,20 @@ there, show the new status; if it is not, keep the recorded one. The
 demo writes with a few lines of Python instead of a formula, but the
 discipline is identical — the key decides where the value lands,
 and a person decides whether it lands at all.
+
+**How the lens knows a CoA arrived**
+
+It doesn't watch anything by magic. An arrival has to become a
+record somewhere the pattern reads. In this demo, that record is a
+file in an inbox folder. In a Microsoft shop it is usually a small
+Power Automate flow: when an email arrives from a contract lab's
+results address with an attachment, save the attachment to a
+SharePoint folder and add a row to an Arrivals list — date, sender,
+subject, link. The flow is deliberately dumb plumbing: it records
+that something arrived and interprets nothing. The lens reads the
+Arrivals list each morning alongside the trackers, reads the
+attachment itself, and does the checking in Python. Record wide,
+interpret in one place, and let people make the entries that count.
 
 **In a real company**, the same pattern runs on the company's own
 harness — Copilot Studio with Power Automate and the Graph API, Lists
