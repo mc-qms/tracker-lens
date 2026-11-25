@@ -390,7 +390,10 @@ person.
 
 **Asking questions**
 
-The Today tab takes questions, and the rule is that the chat never
+The digest and the answers are one voice. Python computes a single
+snapshot of the trackers; the lens turns it into words — as the
+morning update on its own, and as an answer whenever you ask. The
+Today tab takes questions, and the rule is that the chat never
 does its own math. Python computes a snapshot — every test with its
 state, due date, and day count — and answers are phrased from that
 snapshot alone, with the source file named. Ask why something is
