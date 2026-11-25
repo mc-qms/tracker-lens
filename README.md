@@ -14,8 +14,12 @@ comes back, and EM trending with excursions flagged.
 
 ## The rules it runs on
 
-- **Sources are opened read-only and never written.** The trackers
-  stay exactly as their owners left them.
+- **Sources are opened read-only, and the lens never writes.** The
+  trackers stay exactly as their owners left them — with one
+  exception, and it is the user's: when a CoA has arrived but the
+  tracker still shows the test as out, the Today tab offers a
+  mark-as-received button, and the user's click writes the Status
+  cell, keyed by sample ID and test.
 - **Every date, limit, and count is computed in Python.** Due dates
   come from sent dates plus promised turnaround times; specification
   checks compare numbers against registered limits.

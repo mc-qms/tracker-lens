@@ -154,6 +154,32 @@ def review_coa(extracted, tests):
     return {"checks": checks, "verdict": verdict, "matched": matched, "spec": spec, "spec_key": spec_key}
 
 
+def find_arrivals(tests, extracted_list):
+    """CoAs that have arrived while their tracker rows still show the
+    tests as out. The lens knows (it reads the inbox); the tracker
+    does not. Matching is strict — same sample, and the test name must
+    match the tracker row's test — because an arrival is what the
+    Today tab offers to write back, and a write never guesses."""
+    arrivals = []
+    for ex in extracted_list:
+        sid = ex.get("sample_id")
+        test_name = ex.get("test") or ""
+        if not sid:
+            continue
+        for t in tests:
+            if t["sample_id"] != sid or t["status"] != "SENT":
+                continue
+            if (t["test"].lower() in test_name.lower()
+                    or test_name.lower() in t["test"].lower()):
+                arrivals.append({
+                    "sample_id": sid,
+                    "test": t["test"],
+                    "lab": t["lab"],
+                })
+                break
+    return arrivals
+
+
 def proposed_update(extracted, review):
     """The exact tracker edit for a human to type in — addressed by
     sample ID and column name, never by row number (rows move when

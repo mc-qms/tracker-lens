@@ -5,7 +5,7 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lens import core, digest, extract, loaders
+from lens import core, digest, extract, loaders, writeback
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 TODAY = date(2026, 11, 24)
@@ -94,6 +94,43 @@ def test_oos_coa_flags():
     assert "Method stated on the CoA" in flags
     update = core.proposed_update(parsed, review)
     assert "escalate" in dict(update["sets"])["Status"]
+
+
+def _inbox_parsed():
+    inbox = os.path.join(DATA, "coa_inbox")
+    out = []
+    for name in sorted(os.listdir(inbox)):
+        with open(os.path.join(inbox, name), encoding="utf-8") as f:
+            out.append(extract.parse_coa_text(f.read()))
+    return out
+
+
+def test_arrivals_detected():
+    state = loaded()
+    arrivals = core.find_arrivals(state["tests"], _inbox_parsed())
+    # FL-106's CoA is in the inbox but its tracker row still says sent.
+    # FL-107 and FL-109 are already marked received — not arrivals.
+    assert [(a["sample_id"], a["test"]) for a in arrivals] == [("FL-106", "Endotoxin")]
+
+
+def test_mark_received_writes_by_key(tmp_path):
+    import openpyxl
+    import shutil
+    for name in ("sample_log.xlsx", "testing_tracker.xlsx",
+                 "em_trending.xlsx", "stability_tracker.xlsx"):
+        shutil.copy(os.path.join(DATA, name), tmp_path / name)
+    rec = writeback.mark_received(str(tmp_path), "FL-106", "Endotoxin")
+    assert rec["old"] == "Sent" and rec["new"] == "RECEIVED"
+    wb = openpyxl.load_workbook(tmp_path / "testing_tracker.xlsx")
+    ws = wb["CTL Tracker 2026"]
+    cells = {(r[0].value, r[1].value): r[5].value for r in ws.iter_rows(min_row=2)}
+    assert cells[("FL-106", "Endotoxin")] == "RECEIVED"
+    assert cells[("FL-101", "Endotoxin")] == "Sent"  # same test, other sample: untouched
+    assert cells[("FL-101", "TOC")] == "Sent"         # same sample, other test: untouched
+    state = loaders.load_all(str(tmp_path), today=TODAY)
+    enriched = core.enrich_tests(state["tests"], TODAY)
+    fl106 = [t for t in enriched if t["sample_id"] == "FL-106"][0]
+    assert fl106["state"] == "AWAITING_REVIEW"
 
 
 def test_digest_facts_and_provenance():

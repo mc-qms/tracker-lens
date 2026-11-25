@@ -12,6 +12,9 @@ assert "Here's the update for today" in md, "digest missing"
 assert "due in 2 days" in md, "due-soon line missing"
 assert "stability_tracker.xlsx could not be read" in md, "provenance missing"
 print("digest + provenance OK")
+inbox = [s for s in at.selectbox if s.label == "Inbox"]
+assert inbox, "inbox selectbox not found"
+inbox[0].set_value("coa_fl107_endotoxin.txt").run()
 btns = [b for b in at.button if "Read and review" in b.label]
 assert btns, "CoA button not found"
 btns[0].click().run()

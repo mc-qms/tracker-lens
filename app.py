@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from lens import core, digest, extract, loaders
+from lens import core, digest, extract, loaders, writeback
 
 DATA_DIR = Path(__file__).parent / "data"
 INBOX = DATA_DIR / "coa_inbox"
@@ -59,6 +59,14 @@ excursions = core.em_excursions(state["em"])
 facts = digest.build_facts(enriched, excursions, state["reports"])
 materials = {s["sample_id"]: s["material"] for s in state["samples"]}
 
+inbox_parsed = []
+for _p in sorted(INBOX.glob("*.txt")):
+    try:
+        inbox_parsed.append(extract.parse_coa_text(_p.read_text(encoding="utf-8")))
+    except Exception:
+        pass
+arrivals = core.find_arrivals(state["tests"], inbox_parsed)
+
 st.title("Tracker Lens")
 st.caption(
     "Fictitious Labs Inc. — QC Microbiology & Sample Management. "
@@ -78,7 +86,8 @@ with st.sidebar:
     st.caption(
         f"Demo date: {state['today']:%B %d, %Y}. The fictional trackers are "
         "date-shifted at load so they are always current. Source files are "
-        "opened read-only."
+        "opened read-only — the app writes only when you tell it to, "
+        "from the Today tab."
     )
 
 tab_today, tab_tests, tab_coa, tab_em, tab_how = st.tabs(
@@ -95,6 +104,40 @@ with tab_today:
     st.subheader("The morning update")
     for line in digest.render_digest(facts):
         st.markdown(line)
+
+    if "last_write" in st.session_state:
+        w = st.session_state.pop("last_write")
+        st.success(
+            f"You updated {w['file']} (sheet “{w['sheet']}”): the row where "
+            f"Sample # = {w['sample_id']} and Test = {w['test']} — "
+            f"{w['column']} changed from “{w['old']}” to “{w['new']}”. "
+            "The tracker now shows this test as back and awaiting review."
+        )
+    if arrivals:
+        st.subheader("Arrived — but the tracker doesn't know yet")
+        st.markdown(
+            "In the connected pattern the agent watches the inbox, so it "
+            "knows the moment a CoA lands. These CoAs are in the inbox, "
+            "but their tracker rows still show the tests as out:"
+        )
+        for a in arrivals:
+            st.markdown(
+                f"**{a['sample_id']} {a['test']}** ({a['lab']}) — "
+                "CoA received; the tracker still shows it as sent."
+            )
+            if st.button(
+                f"Mark {a['sample_id']} {a['test']} as received in the tracker",
+                key=f"recv_{a['sample_id']}_{a['test']}",
+            ):
+                st.session_state["last_write"] = writeback.mark_received(
+                    str(DATA_DIR), a["sample_id"], a["test"])
+                st.cache_data.clear()
+                st.rerun()
+        st.caption(
+            "The lens never writes on its own. This button is you writing — "
+            "the app just knows which file, which row, and which column. "
+            "The write is keyed by sample ID and test, never by row number."
+        )
 
 # ------------------------------------------------------------------ Testing
 with tab_tests:
@@ -192,10 +235,12 @@ with tab_coa:
         st.code("\n".join(lines))
         st.caption(
             "Addressed by sample ID and column name, never by row number — rows "
-            "move when people sort. The app never writes the spreadsheet: in a "
-            "quality environment the person entering a record is accountable "
-            "for it, so the agent prepares the entry and shows its evidence; "
-            "the human types it in."
+            "move when people sort. The app never writes the spreadsheet on "
+            "its own: in a quality environment the person entering a record "
+            "is accountable for it, so the agent prepares the entry and shows "
+            "its evidence; the human enters it. (The one write this demo "
+            "does make is also the human's — the mark-as-received button on "
+            "the Today tab.)"
         )
 
 # ----------------------------------------------------------------------- EM
@@ -229,12 +274,16 @@ with tab_how:
 This demo is a working model of a pattern for a familiar problem: a QC
 lab's real tracking lives in a sprawl of spreadsheets — a sample log
 here, an outsourced-testing tracker there, an EM sheet nobody wants to
-open — and keeping them current is manual, fragile work.
+open — and keeping them current is manual, fragile work. Not every lab
+can afford a LIMS, and "a LIMS is coming" can run for years; until it
+arrives, the sprawl is the system, so this pattern is designed to work
+with it as it is.
 
 **The rules it runs on**
 
-- **Sources are opened read-only and never written.** The trackers stay
-  exactly as their owners left them.
+- **Sources are opened read-only, and the lens never writes.** The
+  trackers stay exactly as their owners left them — with one
+  exception, and it is yours: the mark-as-received write below.
 - **Every date, limit, and count is computed in Python.** Due dates come
   from sent dates plus promised turnaround times; specification checks
   compare numbers against registered limits. Nothing that matters is
@@ -252,6 +301,31 @@ open — and keeping them current is manual, fragile work.
 - **Broken sources are reported, not hidden.** One of the four demo
   trackers has a renamed column and cannot be read; the morning update
   says so, and says what is therefore missing from the picture.
+
+**When you write from the lens**
+
+In the connected pattern, the agent knows things the trackers don't —
+it watches the inbox, so it knows a CoA arrived the moment it lands.
+The Today tab shows that gap, and closing it is still a human act:
+you click "Mark as received," and only then does anything write. The
+write is keyed, never positional — the row where Sample # = FL-106
+and Test = Endotoxin, the Status column — because rows move when
+people sort, and keys don't.
+
+A spreadsheet-only shop can get the same behavior with a formula.
+Keep arrivals on an Updates sheet (Sample # in column A, the new
+Status in column B), and put this in a helper column beside the
+tracker's recorded Status (column F):
+
+```
+=XLOOKUP($A2, Updates!$A:$A, Updates!$B:$B, $F2)
+```
+
+It reads: look up this row's Sample # in the updates list; if it is
+there, show the new status; if it is not, keep the recorded one. The
+demo writes with a few lines of Python instead of a formula, but the
+discipline is identical — the key decides where the value lands,
+and a person decides whether it lands at all.
 
 **In a real company**, the same pattern runs on the company's own
 harness — Copilot Studio with Power Automate and the Graph API, Lists
