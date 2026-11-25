@@ -12,7 +12,10 @@ can't — a plain-language morning update, one unified view of every
 outsourced test, a first-pass review when a certificate of analysis
 comes back, and EM trending with excursions flagged.
 
-## The rules it runs on
+## The rules the whole pattern runs on
+
+What the lens may read, what Python computes, what the model may
+do, and who may write:
 
 - **Sources are opened read-only, and the lens never writes.** The
   trackers stay exactly as their owners left them — with one
@@ -81,8 +84,8 @@ limits in `lens/core.py` are demo values.
 
 ## Layout
 
-- `app.py` — the Streamlit app (five tabs: Today, Testing tracker,
-  CoA intake, EM trending, How this works)
+- `app.py` — the Streamlit app (six tabs: Today, Testing tracker,
+  CoA intake, Arrivals, EM trending, How this works)
 - `lens/loaders.py` — read and normalize the messy spreadsheets
 - `lens/core.py` — due-date math, specification checks, EM limits,
   CoA review, proposed tracker updates

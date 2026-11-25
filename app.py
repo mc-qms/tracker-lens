@@ -84,12 +84,21 @@ with st.sidebar:
         "from the Today tab."
     )
 
-tab_today, tab_tests, tab_coa, tab_em, tab_how = st.tabs(
-    ["Today", "Testing tracker", "CoA intake", "EM trending", "How this works"]
+tab_today, tab_tests, tab_coa, tab_arr, tab_em, tab_how = st.tabs(
+    ["Today", "Testing tracker", "CoA intake", "Arrivals",
+     "EM trending", "How this works"]
 )
 
 # ------------------------------------------------------------------- Today
 with tab_today:
+    st.markdown(
+        "**This page is the lens.** The sample log, the testing "
+        "tracker, the EM sheet, and the arrivals register — every "
+        "source in the sidebar — collected into one view and computed "
+        "fresh. It is deliberately not another spreadsheet: the "
+        "tables live in the other tabs. This page is what they mean "
+        "this morning."
+    )
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Open outsourced tests", facts["open_count"])
     c2.metric("Overdue", len(facts["overdue"]))
@@ -282,6 +291,31 @@ with tab_coa:
             "the Today tab.)"
         )
 
+# ----------------------------------------------------------------- Arrivals
+with tab_arr:
+    st.subheader("The arrivals register")
+    st.markdown(
+        "One row per CoA that has landed — the record the intake "
+        "plumbing appends to and the Today queue reads. Reviewed "
+        "rows stay here; they only leave the morning list."
+    )
+    if state["arrivals"]:
+        st.dataframe(pd.DataFrame([{
+            "Date": a["date"].isoformat() if a["date"] else "",
+            "Sample": a["sample_id"],
+            "Test": a["test"],
+            "Lab": a["lab"],
+            "Attachment": a["attachment"],
+            "Reviewed": "Yes" if a["reviewed"] else "—",
+        } for a in state["arrivals"]]), width="stretch", hide_index=True)
+    else:
+        st.info("No arrivals recorded.")
+    st.caption(
+        "In a real shop this register is a SharePoint list that a "
+        "Power Automate flow writes when a lab's CoA email lands; "
+        "here it is arrivals.xlsx, kept with the other demo sources."
+    )
+
 # ----------------------------------------------------------------------- EM
 with tab_em:
     st.subheader("Environmental monitoring — viable air, by room")
@@ -318,7 +352,8 @@ can afford a LIMS, and "a LIMS is coming" can run for years; until it
 arrives, the sprawl is the system, so this pattern is designed to work
 with it as it is.
 
-**The rules it runs on**
+**The rules the whole pattern runs on** — what the lens may read,
+what Python computes, what the model may do, and who may write:
 
 - **Sources are opened read-only, and the lens never writes.** The
   trackers stay exactly as their owners left them — with one
