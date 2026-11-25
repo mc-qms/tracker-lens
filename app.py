@@ -527,5 +527,17 @@ proves the pattern, not the deployment.
 **Demo data:** Fictitious Labs Inc. is fictional, as are its contract
 labs and results. Dates are shifted at load so the trackers are always
 current. Specifications and EM limits shown are demo values.
+
+**TL;DR**
+
+The messy spreadsheets stay exactly as they are. Python collects
+them into one view and computes what's overdue, what's due, and
+what's back; in a real shop that collection is a Power Query. The
+agent says it in plain words every morning and answers questions
+from the same computed facts — it never does its own math and never
+writes on its own. The one write is yours: a status, in the sheet,
+keyed by sample and test. Results live on CoAs, arrivals live in a
+register, and every number the lens speaks names the sheet it came
+from.
 """
     )
