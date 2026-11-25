@@ -486,6 +486,18 @@ and few — the tracker's Status column, the register's Reviewed
 column. What the agent removes is not the typing; it's the hunting
 across five files to learn which cell needs you today.
 
+Writing back *from* the collected view is the one piece of real
+black magic, and it has a hard edge: Power Query output is
+read-only. Type into the collected table and the next refresh
+erases it — the view is a printout, not a two-way table. What does
+work is a Power Automate flow run on a row of the view. For that,
+the query stamps each row with where it came from (source workbook,
+sheet) alongside its keys, and the flow routes on those: the Excel
+connector's "Update a row" finds the row in the source workbook by
+key column — Sample # and Test — and sets the cell. Keyed, never
+positional, because rows move when people sort. That flow is this
+demo's button, in platform clothing.
+
 **In a real company**, the same pattern runs on the company's own
 harness — Copilot Studio with Power Automate and the Graph API, Lists
 instead of loose workbooks, or Streamlit inside Snowflake — behind
