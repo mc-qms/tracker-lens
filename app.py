@@ -297,7 +297,9 @@ with tab_arr:
             "The lens never writes on its own. These buttons are you "
             "writing — the app just knows which file, which row, and "
             "which column. Every write is keyed by sample ID and test, "
-            "never by row number."
+            "never by row number. (In Excel there is no button: you "
+            "open the sheet and type the status. The button stands in "
+            "for that typing so you can watch where the write lands.)"
         )
         for a in arrivals:
             when = f" — arrived {a['date']:%b %d}" if a["date"] else ""
@@ -465,6 +467,24 @@ can phrase the same snapshot more freely; the facts it may use are
 the computed ones, and a question that asks for a decision ("should
 I accept this result?") gets the facts and the flags, never the
 disposition. That stays with a person.
+
+**How this maps to a real Excel shop**
+
+There is no hand-kept "collected sheet," and there doesn't need to
+be. In a Microsoft shop the collecting is a Power Query: it pulls
+the tracker workbooks into one view — filtered to what's due soon,
+what's been received, what's still out — and re-derives that view
+from the sources on every refresh. A query can't drift the way a
+copy-pasted consolidation does; it's the loaders in this demo,
+wearing Excel's clothes. The agent reads that collected view and
+speaks from it.
+
+And there are no buttons in Excel. The writes in this demo stand in
+for what a person actually does there: open the tracker and type
+the status, the way they already do. The input surfaces are named
+and few — the tracker's Status column, the register's Reviewed
+column. What the agent removes is not the typing; it's the hunting
+across five files to learn which cell needs you today.
 
 **In a real company**, the same pattern runs on the company's own
 harness — Copilot Studio with Power Automate and the Graph API, Lists
